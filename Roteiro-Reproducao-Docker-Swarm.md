@@ -639,7 +639,6 @@ Thumbs.db
 *.swp
 *.swo
 ```
-
 ---
 
 ## 14. Referências
