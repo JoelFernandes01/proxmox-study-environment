@@ -8,6 +8,7 @@
 
 ## 📋 Sumário
 
+0. [⏰ Configuração Obrigatória — ANTES de Começar](#0-⏰-configuração-obrigatória--antes-de-começar)
 1. [Visão Geral da Arquitetura](#1-visão-geral-da-arquitetura)
 2. [Pré-requisitos](#2-pré-requisitos)
 3. [Preparação do Host (todos os nós)](#3-preparação-do-host-todos-os-nós)
@@ -22,6 +23,66 @@
 12. [Extração de Comandos do Histórico (para documentação)](#12-extração-de-comandos-do-histórico-para-documentação)
 13. [Checklist Pré-Push Git](#13-checklist-pré-push-git)
 14. [Referências](#14-referências)
+
+---
+
+## 0. ⏰ Configuração Obrigatória — ANTES de Começar
+
+> 🚨 **Faça isso PRIMEIRO, antes de qualquer outro comando do roteiro.**  
+> Sem o timestamp, você terá os comandos no histórico, mas **não saberá a ordem cronológica exata** — o que torna a reprodução muito mais difícil.
+
+### 0.1 Ativar timestamp no histórico do Bash
+
+Adicione ao `~/.bashrc` (ou `~/.zshrc`):
+
+```bash
+cat >> ~/.bashrc << 'EOF'
+
+# Histórico — timestamp e tamanho ampliado
+export HISTTIMEFORMAT="%F %T "
+export HISTSIZE=100000
+export HISTFILESIZE=200000
+EOF
+
+source ~/.bashrc
+```
+
+### 0.2 Validar que funcionou
+
+```bash
+history 5
+```
+
+**Saída esperada:** cada linha começa com data e hora no formato `YYYY-MM-DD HH:MM:SS`:
+
+```
+  501  2026-10-01 09:15:32 ls -la
+  502  2026-10-01 09:15:40 docker --version
+  503  2026-10-01 09:16:01 cat ~/.bashrc
+  504  2026-10-01 09:16:15 history 5
+```
+
+Se aparecer **sem** data/hora, o `source` não pegou — feche e reabra o terminal.
+
+### 0.3 Salvar snapshot inicial do histórico
+
+```bash
+history -w
+cp ~/.bash_history ~/bash-history-inicio-$(date +%Y%m%d-%H%M).txt
+```
+
+> 💡 Esse snapshot marca o **ponto zero** do seu ambiente. No final, você compara com o snapshot final para ver **exatamente** os comandos usados na montagem.
+
+### 0.4 ⚠️ Atenção ao `sudo` e sessões separadas
+
+- Comandos com `sudo` na **mesma sessão do usuário** vão para `~/.bash_history`
+- Se você virou **root** com `sudo -i` ou `su`, os comandos vão para `/root/.bash_history`
+- Para juntar os dois históricos ao final:
+
+```bash
+sudo cat /root/.bash_history >> ~/comandos-swarm-completo.txt
+sort -u ~/comandos-swarm-completo.txt -o ~/comandos-swarm-completo.txt
+```
 
 ---
 
@@ -482,32 +543,30 @@ curl -I https://portainer.nverse.local
 
 ## 12. Extração de Comandos do Histórico (para documentação)
 
-### 12.1 Configurar timestamp no histórico (IMPORTANTE)
+> 💡 **Lembrete:** o timestamp (`HISTTIMEFORMAT`) já foi configurado na **Seção 0** — se você seguiu o roteiro na ordem, ele está ativo desde o início.
 
-Adicione ao `~/.bashrc` (ou `~/.zshrc`):
-
-```bash
-export HISTTIMEFORMAT="%F %T "
-export HISTSIZE=100000
-export HISTFILESIZE=200000
-```
-
-Depois:
-
-```bash
-source ~/.bashrc
-```
-
-A partir de agora, todo comando terá **data/hora** no `history`, essencial para reconstruir a **ordem cronológica** dos passos.
-
-### 12.2 Garantir que o histórico está salvo em disco
+### 12.1 Garantir que o histórico está salvo em disco
 
 ```bash
 history -w
 wc -l ~/.bash_history
 ```
 
-### 12.3 Filtros por categoria
+### 12.2 Salvar snapshot final do histórico
+
+```bash
+cp ~/.bash_history ~/bash-history-fim-$(date +%Y%m%d-%H%M).txt
+```
+
+### 12.3 Comparar início vs fim (o que mudou)
+
+```bash
+diff ~/bash-history-inicio-*.txt ~/bash-history-fim-*.txt
+```
+
+> 💡 Isso mostra **exatamente** os comandos que você rodou durante a montagem do ambiente — ouro puro para a documentação.
+
+### 12.4 Filtros por categoria
 
 **Preparação do Host:**
 
@@ -539,7 +598,7 @@ grep -iE "(portainer|portainer-agent)" ~/.bash_history | sort -u
 grep -iE "(docker|containerd|swarm|traefik|portainer)" ~/.bash_history | sort -u
 ```
 
-### 12.4 Gerar arquivo estruturado
+### 12.5 Gerar arquivo estruturado
 
 ```bash
 {
@@ -560,7 +619,7 @@ grep -iE "(docker|containerd|swarm|traefik|portainer)" ~/.bash_history | sort -u
 } > ~/comandos-swarm-completo.txt
 ```
 
-### 12.5 ⚠️ Atenção ao `sudo` e sessões separadas
+### 12.6 ⚠️ Atenção ao `sudo` e sessões separadas
 
 - Comandos com `sudo` na **mesma sessão do usuário** vão para `~/.bash_history`
 - Se você virou **root** com `sudo -i` ou `su`, os comandos vão para `/root/.bash_history`
@@ -639,6 +698,7 @@ Thumbs.db
 *.swp
 *.swo
 ```
+
 ---
 
 ## 14. Referências
