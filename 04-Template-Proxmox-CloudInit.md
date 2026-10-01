@@ -2,7 +2,7 @@
 
 > **Autor:** Joel Fernandes  
 > **Data:** 01/10/2026  
-> **Objetivo:** Documentar o processo completo de criação de templates Proxmox com cloud-init funcional, incluindo scripts, boas práticas, armadilhas, validação e status do cluster.  
+> **Objetivo:** Documentar o processo completo de criação de templates Proxmox com cloud-init funcional, incluindo scripts, boas práticas, armadilhas e validação.  
 > **Pré-requisito:** Proxmox 9.x, `virt-customize` (libguestfs-tools), acesso root/sudo, imagens cloud oficiais do Ubuntu.
 
 ---
@@ -23,7 +23,6 @@
 12. [Boas Práticas](#12-boas-práticas)
 13. [Referências Cruzadas](#13-referências-cruzadas)
 14. [Troubleshooting — Timeout e Resíduos no Storage](#14-troubleshooting--timeout-e-resíduos-no-storage)
-15. [Status do Cluster — Referência Visual](#15-status-do-cluster--referência-visual)
 
 ---
 
@@ -506,7 +505,6 @@ Prefira `sudo` com usuário normal. Evita arquivos com dono `root` no home.
 | **[02-Docker-Swarm-Traefik-Portainer.md](./02-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Swarm + stacks |
 | **[03-Governanca-Git.md](./03-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
 | **04-Template-Proxmox-CloudInit.md** *(este documento)* | Templates Proxmox com cloud-init |
-| **[05-Ansible-Docker-Swarm.md](./05-Ansible-Docker-Swarm.md)** | Playbooks Ansible |
 
 ---
 
@@ -538,19 +536,19 @@ disk image '/mnt/pve/<STORAGE>/images/<VM_ID>/vm-<VM_ID>-cloudinit.qcow2' alread
 
 ### 14.2 Como Diagnosticar
 
-**Passo 1 — Ver as VMs ativas no Proxmox (no host):**
+**Passo 1 — Ver as VMs ativas no Proxmox:**
 
 ```bash
 qm list | grep -E "docker-(swarm|worker)"
 ```
 
-**Passo 2 — Ver as pastas no storage (no host):**
+**Passo 2 — Ver as pastas no storage:**
 
 ```bash
 ls -la /mnt/pve/<STORAGE>/images/
 ```
 
-**Passo 3 — Ver o que o Terraform conhece (no laptop):**
+**Passo 3 — Ver o que o Terraform conhece:**
 
 ```bash
 terraform state list | grep docker_environment | sort
@@ -695,96 +693,6 @@ terraform apply tfplan
 
 ---
 
-## 15. Status do Cluster — Referência Visual
-
-> 🎯 **Diagrama de referência** com o estado atual do cluster Docker Swarm após o provisionamento.
-
-```
-┌─────────────────────────────────────────────────────┐
-│  CLUSTER DOCKER SWARM — STATUS                      │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  Managers (3):                                      │
-│    ✅ docker-swarm-01  → 10.0.39.100 (VM 9000)      │
-│    ✅ docker-swarm-02  → 10.0.39.101 (VM 9001)      │
-│    ✅ docker-swarm-03  → 10.0.39.102 (VM 9002)      │
-│                                                     │
-│  Workers (3):                                       │
-│    ✅ docker-worker-01 → 10.0.39.120 (VM 9010)      │
-│    ✅ docker-worker-02 → 10.0.39.121 (VM 9011)      │
-│    ✅ docker-worker-03 → 10.0.39.122 (VM 9012)      │
-│                                                     │
-│  Docker:         ⏳ Não instalado ainda             │
-│  Swarm:          ⏳ Não inicializado                │
-│  Traefik:        ⏳ Não deployado                   │
-│  Portainer:      ⏳ Não deployado                   │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
-
-### 15.1 Legenda
-
-| Ícone | Significado |
-|-------|-------------|
-| ✅ | Concluído / operacional |
-| ⏳ | Pendente / próximo passo |
-| ⚠️ | Atenção / problema |
-| ❌ | Falhou / bloqueado |
-
-### 15.2 Mapa de IPs
-
-| Hostname | IP | VM ID | Role |
-|----------|-----|-------|------|
-| `docker-swarm-01` | `10.0.39.100` | 9000 | manager |
-| `docker-swarm-02` | `10.0.39.101` | 9001 | manager |
-| `docker-swarm-03` | `10.0.39.102` | 9002 | manager |
-| `docker-worker-01` | `10.0.39.120` | 9010 | worker |
-| `docker-worker-02` | `10.0.39.121` | 9011 | worker |
-| `docker-worker-03` | `10.0.39.122` | 9012 | worker |
-
-### 15.3 Status Final Esperado (após Ansible)
-
-Quando o cluster estiver 100% operacional, o diagrama ficará assim:
-
-```
-┌─────────────────────────────────────────────────────┐
-│  CLUSTER DOCKER SWARM — STATUS                      │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  Managers (3):                                      │
-│    ✅ docker-swarm-01  → 10.0.39.100 (Líder)        │
-│    ✅ docker-swarm-02  → 10.0.39.101 (Reachable)    │
-│    ✅ docker-swarm-03  → 10.0.39.102 (Reachable)    │
-│                                                     │
-│  Workers (3):                                       │
-│    ✅ docker-worker-01 → 10.0.39.120 (Ready)        │
-│    ✅ docker-worker-02 → 10.0.39.121 (Ready)        │
-│    ✅ docker-worker-03 → 10.0.39.122 (Ready)        │
-│                                                     │
-│  Docker:         ✅ Instalado (v27.x)               │
-│  Swarm:          ✅ Inicializado (3 managers)       │
-│  Traefik:        ✅ Deployado (stack: traefik)      │
-│  Portainer:      ✅ Deployado (stack: portainer)    │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
-
-### 15.4 Como Atualizar Este Diagrama
-
-Sempre que uma etapa for concluída, atualize o status:
-
-| Etapa | Mudança |
-|-------|---------|
-| Docker instalado | `Docker: ⏳ → ✅` |
-| Swarm inicializado | `Swarm: ⏳ → ✅` + adicionar `(Líder)` / `(Reachable)` nos managers |
-| Traefik deployado | `Traefik: ⏳ → ✅` |
-| Portainer deployado | `Portainer: ⏳ → ✅` |
-| Workers adicionados | `(Ready)` nos workers |
-
-> 💡 **Documentação viva**: este diagrama reflete o estado real do projeto. Mantenha-o atualizado.
-
----
-
 ## 🧠 Lições Aprendidas
 
 1. **`cloud-init.disabled` é o bug silencioso** — sem removê-lo, o Terraform aplica config em vão.
@@ -799,8 +707,6 @@ Sempre que uma etapa for concluída, atualize o status:
 10. **Documentar depois de validar** — o documento reflete o que funcionou, não teoria.
 11. **Timeout no Terraform ≠ falha no Proxmox** — verifique o estado real antes de agir.
 12. **Resíduos no storage são silenciosos** — audite periodicamente.
-13. **Teste de reprodutibilidade** — destruir e recriar do zero é o padrão ouro.
-14. **Status visual** — diagrama de cluster mantido atualizado é documentação viva.
 
 ---
 
