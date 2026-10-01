@@ -1,0 +1,42 @@
+---
+# =========================================================================
+# Variáveis globais — Docker Swarm
+# =========================================================================
+
+# --- Rede ---
+swarm_network: "10.0.39.0/24"
+swarm_gateway: "10.0.39.1"
+swarm_manager_ip: "10.0.39.100"
+
+# --- NTP ---
+ntp_servers:
+  - a.st1.ntp.br
+  - b.st1.ntp.br
+  - pool.ntp.org
+
+# --- Fuso horário ---
+timezone: "America/Sao_Paulo"
+
+# --- Firewall (portas do Swarm) ---
+swarm_ports_tcp:
+  - 22
+  - 2377
+  - 7946
+  - 80
+  - 443
+
+swarm_ports_udp:
+  - 7946
+  - 4789
+
+# --- Docker ---
+docker_version: "latest"
+
+# --- Traefik ---
+traefik_version: "v3.0"
+traefik_domain: "nverse.local"
+traefik_email: "seu-email@dominio.com"
+
+# --- Portainer ---
+portainer_version: "latest"
+portainer_domain: "portainer.nverse.local"
