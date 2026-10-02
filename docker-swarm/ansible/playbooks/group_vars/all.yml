@@ -33,7 +33,7 @@ swarm_ports_udp:
 docker_version: "latest"
 
 # --- Traefik ---
-traefik_version: "v3.0"
+traefik_version: "v2.11"
 traefik_domain: "nverse.local"
 traefik_email: "seu-email@dominio.com"
 

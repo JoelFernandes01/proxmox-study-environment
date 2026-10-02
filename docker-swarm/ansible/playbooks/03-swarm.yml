@@ -1,0 +1,94 @@
+---
+# =========================================================================
+# Playbook 03+04 — Inicializar Swarm e adicionar todos os nós
+# =========================================================================
+
+- name: Inicializar Docker Swarm no manager 01
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Verificar estado do Swarm
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Inicializar Swarm
+      command: docker swarm init --advertise-addr {{ swarm_manager_ip }}
+      when: swarm_state.stdout != "active"
+
+    - name: Obter token worker
+      command: docker swarm join-token -q worker
+      register: worker_token
+      changed_when: false
+
+    - name: Obter token manager
+      command: docker swarm join-token -q manager
+      register: manager_token
+      changed_when: false
+
+    - name: Salvar tokens
+      set_fact:
+        swarm_worker_token: "{{ worker_token.stdout }}"
+        swarm_manager_token: "{{ manager_token.stdout }}"
+
+    - name: Mostrar tokens
+      debug:
+        msg:
+          - "Worker token: {{ swarm_worker_token }}"
+          - "Manager token: {{ swarm_manager_token }}"
+
+- name: Adicionar managers adicionais
+  hosts: managers[1:]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Verificar estado do Swarm
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Entrar como manager
+      command: >
+        docker swarm join
+        --token {{ hostvars[groups['managers'][0]].swarm_manager_token }}
+        {{ swarm_manager_ip }}:2377
+      when: swarm_state.stdout != "active"
+
+- name: Adicionar workers
+  hosts: workers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Verificar estado do Swarm
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      register: swarm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Entrar como worker
+      command: >
+        docker swarm join
+        --token {{ hostvars[groups['managers'][0]].swarm_worker_token }}
+        {{ swarm_manager_ip }}:2377
+      when: swarm_state.stdout != "active"
+
+- name: Validar cluster
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Listar nós
+      command: docker node ls
+      register: node_list
+      changed_when: false
+
+    - name: Mostrar nós
+      debug:
+        msg: "{{ node_list.stdout_lines }}"
