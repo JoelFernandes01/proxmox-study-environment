@@ -1,4 +1,4 @@
-# 📚 Proxmox Study Environment — NVerse
+# 📚 Proxmox Study Environment
 
 > **Autor:** Joel Fernandes  
 > **Data:** 02/10/2026  
@@ -29,23 +29,23 @@ A documentação está organizada em **8 documentos** sequenciais. Recomenda-se 
 ┌─────────────────────────────────────────────────────┐
 │  CLUSTER DOCKER SWARM — STATUS                      │
 ├─────────────────────────────────────────────────────┤
-│                                                      │
-│  Managers (3):                                       │
+│                                                     │
+│  Managers (3):                                      │
 │    ✅ docker-swarm-01  → 10.0.39.100 (Líder)        │
 │    ✅ docker-swarm-02  → 10.0.39.101 (Reachable)    │
 │    ✅ docker-swarm-03  → 10.0.39.102 (Reachable)    │
-│                                                      │
-│  Workers (3):                                        │
+│                                                     │
+│  Workers (3):                                       │
 │    ✅ docker-worker-01 → 10.0.39.120 (Ready)        │
 │    ✅ docker-worker-02 → 10.0.39.121 (Ready)        │
 │    ✅ docker-worker-03 → 10.0.39.122 (Ready)        │
-│                                                      │
+│                                                     │
 │  Docker:         ✅ v29.8.2                         │
 │  Swarm:          ✅ 3 managers + 3 workers          │
 │  Traefik:        ✅ v2.11 (3/3 réplicas)            │
 │  Portainer:      ✅ 6/6 agent + 1/1 server          │
-│  DNS:            ✅ Resolvendo (.nverse.local)      │
-│                                                      │
+│  DNS:            ✅ Resolvendo (.empresa.local)      │
+│                                                     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -145,7 +145,7 @@ ansible-playbook playbooks/05-deploy-stacks.yml
 |---------|-------|
 | **Rede** | `10.0.39.0/24` |
 | **Gateway** | `10.0.39.1` |
-| **Domínio** | `.nverse.local` |
+| **Domínio** | `.empresa.local` |
 
 ---
 
@@ -163,8 +163,6 @@ ansible-playbook playbooks/05-deploy-stacks.yml
 
 ## 📄 Licença
 
-Uso interno — Ambiente NVerse.
-
 ---
 
-*Documento gerado em 02/10/2026 como parte do roteiro oficial do ambiente NVerse.*
+*Documento gerado em 02/10/2026 como parte do roteiro oficial do ambiente de estudos.*
