@@ -1,7 +1,7 @@
-# 🖼️ Doc 4 — Template Proxmox com Cloud-Init
+# 🖼️ Doc 1 — Template Proxmox com Cloud-Init
 
 > **Autor:** Joel Fernandes  
-> **Data:** 01/10/2026  
+> **Data:** 02/10/2026  
 > **Objetivo:** Documentar o processo completo de criação de templates Proxmox com cloud-init funcional, incluindo scripts, boas práticas, armadilhas e validação.  
 > **Pré-requisito:** Proxmox 9.x, `virt-customize` (libguestfs-tools), acesso root/sudo, imagens cloud oficiais do Ubuntu.
 
@@ -497,14 +497,19 @@ Prefira `sudo` com usuário normal. Evita arquivos com dono `root` no home.
 
 ---
 
+
 ## 13. Referências Cruzadas
 
 | Documento | Assunto |
 |-----------|---------|
-| **[01-Base-Ubuntu-Swarm.md](./01-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW) |
-| **[02-Docker-Swarm-Traefik-Portainer.md](./02-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Swarm + stacks |
-| **[03-Governanca-Git.md](./03-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
-| **04-Template-Proxmox-CloudInit.md** *(este documento)* | Templates Proxmox com cloud-init |
+| **01-Template-Proxmox-CloudInit.md** *(este documento)* | Templates Proxmox com cloud-init |
+| **[02-Provisionamento-Terraform.md](./02-Provisionamento-Terraform.md)** | Provisionamento das VMs |
+| **[03-Base-Ubuntu-Swarm.md](./03-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW) |
+| **[04-Docker-Swarm-Traefik-Portainer.md](./04-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Swarm + stacks |
+| **[05-Ansible-Docker-Swarm.md](./05-Ansible-Docker-Swarm.md)** | Instalação via Ansible |
+| **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer + Traefik |
+| **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
+| **[08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md)** | PostgreSQL multi-disco |
 
 ---
 

@@ -1,9 +1,24 @@
-# Guia Unificado: Esteira de Infraestrutura como Código (IaC) e Automação SRE
-## Proxmox VE + Terraform + Ansible Vault + Testes de Produção — Ambiente Nverse (v10 Final)
+# 🐘 Doc 8 — PostgreSQL Multi-Disco + Ansible Vault
+
+> **Autor:** Joel Fernandes  
+> **Data:** 02/10/2026  
+> **Objetivo:** Documentar o provisionamento de uma VM PostgreSQL 16 com disco dedicado para dados (multi-disco), utilizando Ansible Vault para gerenciar segredos e Terraform para a infraestrutura.  
+> **Pré-requisito:** Templates Proxmox criados (Doc 1), API Token configurado, Terraform e Ansible instalados.  
 
 ---
 
-### 📋 Sumário Executivo
+## 📋 Sumário
+
+1. [Arquitetura do Ambiente](#1-arquitetura-do-ambiente-e-premissas-de-sre)
+2. [Terraform — Provisionamento Multi-Disco](#2-terraform--provisionamento-multi-disco)
+3. [Ansible — Automação, Storage e Segredos](#3-ansible--automação-storage-e-segredos)
+4. [Testes e Validação de Segurança](#4-testes-e-validação-de-segurança)
+5. [Conclusão](#5-conclusão)
+6. [Referências Cruzadas](#6-referências-cruzadas)
+
+---
+
+### 📋 Visão Geral
 Este documento consolidado estabelece a arquitetura final, testada e homologada da esteira completa de provisionamento e automação para o **Ambiente Nverse** no servidor Dell PowerEdge R410 executando **Proxmox VE 9.2.11**. 
 
 O fluxo é dividido em três fases totalmente integradas, seguras e sequenciais:
@@ -32,7 +47,7 @@ O fluxo é dividido em três fases totalmente integradas, seguras e sequenciais:
 
 ---
 
-## 🧩 ETAPA 1: Terraform — Provisionamento de Infraestrutura (Multi-Disco)
+## 2. Terraform — Provisionamento Multi-Disco
 
 ### 1.1. Governança e Permissões de Segurança no Proxmox (`pveum`)
 Para evitar o uso de credenciais de `root`, o acesso do Terraform é regido por um API Token e uma Role com o princípio do menor privilégio, incluindo a permissão `SDN.Use` necessária para vinculação na bridge de rede `vmbr0`:
@@ -170,7 +185,7 @@ terraform apply "multi-disk"
 
 ---
 
-## 🔐 ETAPA 2: Ansible — Automação, Storage, Tuning & Segredos com Ansible Vault
+## 3. Ansible — Automação, Storage e Segredos
 
 ### 2.1. Estrutura de Arquivos e Gestão de Segredos
 A automação com o Ansible utiliza a funcionalidade nativa **Ansible Vault** para garantir que credenciais de sistema e senhas de banco de dados fiquem criptografadas no repositório de código.
@@ -442,7 +457,7 @@ ansible-playbook playbooks/deploy-postgres.yml
 
 ---
 
-## 🧪 ETAPA 3: Bateria de Testes & Validação de Segurança
+## 4. Testes e Validação de Segurança
 
 ### 3.1. Validação de Montagem do Storage (`/dev/sdb`)
 Verifica se o PostgreSQL está armazenando os dados no volume dedicado de 100 GB:
@@ -493,5 +508,37 @@ nverse_prod=# \q
 
 ---
 
-## 🎯 Conclusão e Status do Projeto
+## 5. Conclusão
 O pipeline **Terraform -> Ansible Vault -> Testes** para o **Ambiente Nverse (v10 Final)** foi **100% unificado, homologado e protegido contra vazamento de segredos**. A esteira garante isolamento total de I/O em disco secundário e governança DevSecOps de nível sênior.
+
+---
+
+## 6. Referências Cruzadas
+
+| Documento | Assunto |
+|-----------|---------|
+| **[01-Template-Proxmox-CloudInit.md](./01-Template-Proxmox-CloudInit.md)** | Templates Proxmox com cloud-init |
+| **[02-Provisionamento-Terraform.md](./02-Provisionamento-Terraform.md)** | Provisionamento das VMs |
+| **[03-Base-Ubuntu-Swarm.md](./03-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW) |
+| **[04-Docker-Swarm-Traefik-Portainer.md](./04-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Swarm + stacks |
+| **[05-Ansible-Docker-Swarm.md](./05-Ansible-Docker-Swarm.md)** | Instalação via Ansible |
+| **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer + Traefik |
+| **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
+| **08-PostgreSQL-Multi-Disco-Ansible-Vault.md** *(este documento)* | PostgreSQL multi-disco |
+
+---
+
+## 🧠 Lições Aprendidas
+
+1. **Multi-disco em VMs**: separar OS e dados melhora I/O e permite snapshots independentes
+2. **Ansible Vault**: segredos nunca ficam em texto plano no repositório
+3. **`noatime`**: reduz I/O desnecessário em disco de dados
+4. **TLSv1.3**: versão mais segura do TLS, obrigatória em produção
+5. **`pg_hba.conf`**: controle de acesso por IP e método de autenticação
+6. **Testes de produção**: validar socket, TLS e montagem antes de ir para produção
+7. **`pveum`**: princípio do menor privilégio para tokens Terraform
+8. **Backup do `secret.yml`**: o arquivo criptografado deve ser versionado, mas a **chave** não
+
+---
+
+*Documento gerado em 02/10/2026 como parte do roteiro oficial de reprodução do ambiente NVerse.*

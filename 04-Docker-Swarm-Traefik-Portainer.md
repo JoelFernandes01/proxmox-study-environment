@@ -1,9 +1,9 @@
-# 🐳 Doc 2 — Docker Swarm + Traefik + Portainer
+# 🐳 Doc 4 — Docker Swarm + Traefik + Portainer
 
 > **Autor:** Joel Fernandes  
 > **Data:** 01/10/2026  
 > **Objetivo:** Instalar e configurar o Docker Engine, inicializar o Swarm, adicionar nós, e implantar Traefik (reverse proxy) e Portainer (gestão) em um cluster.  
-> **Pré-requisito:** VMs Ubuntu já preparadas conforme o **[Doc 1 — Base Ubuntu para Docker Swarm](./01-Base-Ubuntu-Swarm.md)**.
+> **Pré-requisito:** VMs Ubuntu já preparadas conforme o **[Doc 1 — Base Ubuntu para Docker Swarm](./03-Base-Ubuntu-Swarm.md)**.
 
 ---
 
@@ -62,7 +62,7 @@
 
 - **Hosts:** mínimo 3 VMs/servidores (ideal: 3 managers + N workers)
 - **SO:** Ubuntu 26.x LTS — mesmo SO em todos os nós
-- **Base já configurada:** NTP (`chrony`), kernel ajustado, UFW com portas do Swarm, ferramentas essenciais, histórico com timestamp (ver **[Doc 1](./01-Base-Ubuntu-Swarm.md)**)
+- **Base já configurada:** NTP (`chrony`), kernel ajustado, UFW com portas do Swarm, ferramentas essenciais, histórico com timestamp (ver **[Doc 1](./03-Base-Ubuntu-Swarm.md)**)
 - **Rede:** IPs fixos ou DHCP reservado, comunicação nas portas:
   - `2377/tcp` — cluster management
   - `7946/tcp/udp` — node communication
@@ -427,7 +427,7 @@ curl -I https://portainer.nverse.local
 
 ## 11. Extração de Comandos do Histórico
 
-> 💡 **Lembrete:** o timestamp (`HISTTIMEFORMAT`) já foi configurado no **[Doc 1 — Seção 7](./01-Base-Ubuntu-Swarm.md#7-timestamp-no-histórico-do-bash)**.
+> 💡 **Lembrete:** o timestamp (`HISTTIMEFORMAT`) já foi configurado no **[Doc 1 — Seção 7](./03-Base-Ubuntu-Swarm.md#7-timestamp-no-histórico-do-bash)**.
 
 ### 11.1 Garantir que o histórico está salvo em disco
 
@@ -504,7 +504,23 @@ sort -u ~/comandos-swarm-completo.txt -o ~/comandos-swarm-completo.txt
 
 ---
 
-## 12. Referências
+
+## 12. Referências Cruzadas
+
+| Documento | Assunto |
+|-----------|---------|
+| **[01-Template-Proxmox-CloudInit.md](./01-Template-Proxmox-CloudInit.md)** | Templates Proxmox com cloud-init |
+| **[02-Provisionamento-Terraform.md](./02-Provisionamento-Terraform.md)** | Provisionamento das VMs |
+| **[03-Base-Ubuntu-Swarm.md](./03-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW) |
+| **04-Docker-Swarm-Traefik-Portainer.md** *(este documento)* | Instalação do Swarm + stacks |
+| **[05-Ansible-Docker-Swarm.md](./05-Ansible-Docker-Swarm.md)** | Instalação via Ansible |
+| **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer + Traefik |
+| **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
+| **[08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md)** | PostgreSQL multi-disco |
+
+---
+
+## 13. Referências Externas
 
 - [Docker Swarm — Documentação oficial](https://docs.docker.com/engine/swarm/)
 - [Traefik v3 — Documentação oficial](https://doc.traefik.io/traefik/)

@@ -1,4 +1,4 @@
-# 🐧 Doc 1 — Base Ubuntu para Docker Swarm
+# 🐧 Doc 3 — Base Ubuntu para Docker Swarm
 
 > **Autor:** Joel Fernandes  
 > **Data:** 01/10/2026  
@@ -550,7 +550,23 @@ Após aplicar este documento, cada nó estará pronto para o **Doc 2 — Docker 
 5. ✅ Firewall ativo com portas do Swarm liberadas
 6. ✅ Histórico com timestamp ativo
 
-➡️ Siga para **[02-Docker-Swarm-Traefik-Portainer.md](./02-Docker-Swarm-Traefik-Portainer.md)**
+➡️ Siga para **[04-Docker-Swarm-Traefik-Portainer.md](./04-Docker-Swarm-Traefik-Portainer.md)**
+
+---
+
+
+## 11. Referências Cruzadas
+
+| Documento | Assunto |
+|-----------|---------|
+| **[01-Template-Proxmox-CloudInit.md](./01-Template-Proxmox-CloudInit.md)** | Templates Proxmox com cloud-init |
+| **[02-Provisionamento-Terraform.md](./02-Provisionamento-Terraform.md)** | Provisionamento das VMs |
+| **03-Base-Ubuntu-Swarm.md** *(este documento)* | Preparação da VM (NTP, kernel, UFW) |
+| **[04-Docker-Swarm-Traefik-Portainer.md](./04-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Swarm + stacks |
+| **[05-Ansible-Docker-Swarm.md](./05-Ansible-Docker-Swarm.md)** | Instalação via Ansible |
+| **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer + Traefik |
+| **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
+| **[08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md)** | PostgreSQL multi-disco |
 
 ---
 

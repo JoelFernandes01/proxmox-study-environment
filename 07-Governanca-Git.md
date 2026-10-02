@@ -1,4 +1,4 @@
-# 🛡️ Doc 3 — Governança Git
+# 🛡️ Doc 7 — Governança Git
 
 > **Autor:** Joel Fernandes  
 > **Data:** 01/10/2026  
@@ -368,9 +368,9 @@ git push origin main
 
 | Documento | Assunto |
 |-----------|---------|
-| **[01-Base-Ubuntu-Swarm.md](./01-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW, timestamp) |
-| **[02-Docker-Swarm-Traefik-Portainer.md](./02-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Docker + Swarm + stacks |
-| **03-Governanca-Git.md** *(este documento)* | Checklist, `.gitignore`, convenções |
+| **[03-Base-Ubuntu-Swarm.md](./03-Base-Ubuntu-Swarm.md)** | Preparação da VM (NTP, kernel, UFW, timestamp) |
+| **[04-Docker-Swarm-Traefik-Portainer.md](./04-Docker-Swarm-Traefik-Portainer.md)** | Instalação do Docker + Swarm + stacks |
+| **07-Governanca-Git.md** *(este documento)* | Checklist, `.gitignore`, convenções |
 
 ---
 
