@@ -8,7 +8,7 @@
 
 ## 📖 Documentos
 
-A documentação está organizada em **8 documentos** sequenciais. Recomenda-se lê-los na ordem:
+A documentação está organizada em **10 documentos** sequenciais. Recomenda-se lê-los na ordem:
 
 | # | Documento | Assunto |
 |---|-----------|---------|
@@ -20,6 +20,8 @@ A documentação está organizada em **8 documentos** sequenciais. Recomenda-se 
 | **6** | [06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md) | Configuração detalhada do Portainer |
 | **7** | [07-Governanca-Git.md](./07-Governanca-Git.md) | Governança e boas práticas de Git |
 | **8** | [08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md) | PostgreSQL multi-disco com Ansible Vault |
+| **9** | [09-MariaDB-Multi-Disco-Ansible-Vault.md](./09-MariaDB-Multi-Disco-Ansible-Vault.md) | MariaDB multi-disco com Ansible Vault |
+| **10** | [10-NFS-Server-Ansible.md](./10-NFS-Server-Ansible.md) | Servidor NFS para persistência das stacks |
 
 ---
 
@@ -64,6 +66,8 @@ proxmox-study-environment/
 ├── 06-Portainer-via-Ansible.md
 ├── 07-Governanca-Git.md
 ├── 08-PostgreSQL-Multi-Disco-Ansible-Vault.md
+├── 09-MariaDB-Multi-Disco-Ansible-Vault.md
+├── 10-NFS-Server-Ansible.md
 └── docker-swarm/                                    ← código Terraform + Ansible
     ├── main.tf
     ├── variables.tf

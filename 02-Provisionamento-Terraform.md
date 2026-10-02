@@ -448,6 +448,8 @@ terraform plan
 | **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer |
 | **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Governança |
 | **[08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md)** | PostgreSQL |
+| **[09-MariaDB-Multi-Disco-Ansible-Vault.md](./09-MariaDB-Multi-Disco-Ansible-Vault.md)** | MariaDB multi-disco |
+| **[10-NFS-Server-Ansible.md](./10-NFS-Server-Ansible.md)** | Servidor NFS para persistência |
 
 ---
 

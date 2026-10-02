@@ -525,6 +525,8 @@ O pipeline **Terraform -> Ansible Vault -> Testes** para o **Ambiente Nverse (v1
 | **[06-Portainer-via-Ansible.md](./06-Portainer-via-Ansible.md)** | Portainer + Traefik |
 | **[07-Governanca-Git.md](./07-Governanca-Git.md)** | Checklist, `.gitignore`, convenções |
 | **08-PostgreSQL-Multi-Disco-Ansible-Vault.md** *(este documento)* | PostgreSQL multi-disco |
+| **[09-MariaDB-Multi-Disco-Ansible-Vault.md](./09-MariaDB-Multi-Disco-Ansible-Vault.md)** | MariaDB multi-disco |
+| **[10-NFS-Server-Ansible.md](./10-NFS-Server-Ansible.md)** | Servidor NFS para persistência |
 
 ---
 
