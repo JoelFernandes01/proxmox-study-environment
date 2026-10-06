@@ -29,3 +29,22 @@ output "ansible_inventory" {
     vm_user = var.vm_user
   })
 }
+# =========================================================================
+# Gera o arquivo hosts.ini automaticamente
+# =========================================================================
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/templates/inventory.tpl", {
+    managers = {
+      for name, vm in proxmox_virtual_environment_vm.docker_environment :
+      name => local.docker_nodes[name].ip
+      if local.docker_nodes[name].role == "manager"
+    }
+    workers = {
+      for name, vm in proxmox_virtual_environment_vm.docker_environment :
+      name => local.docker_nodes[name].ip
+      if local.docker_nodes[name].role == "worker"
+    }
+    vm_user = var.vm_user
+  })
+  filename = "${path.module}/ansible/inventory/hosts.ini"
+}

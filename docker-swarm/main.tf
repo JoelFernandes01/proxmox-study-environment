@@ -69,6 +69,7 @@ resource "proxmox_virtual_environment_vm" "docker_environment" {
   clone {
     vm_id        = tonumber(var.template_vm_id)
     datastore_id = var.vm_storage_id
+    full         = false
   }
 
   network_device {

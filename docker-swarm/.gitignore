@@ -5,3 +5,11 @@
 *.tfvars
 *.tfvars.json
 secrets.tfvars
+# Planos do Terraform (binários)
+tfplan
+tfplan*
+tfplan-*
+
+# Artefatos
+developer
+*.zip

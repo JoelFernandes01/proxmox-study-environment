@@ -5,6 +5,9 @@
   gather_facts: true
 
   tasks:
+    # =========================================================================
+    # 1. Dependências
+    # =========================================================================
     - name: Instalar dependências
       apt:
         name:
@@ -45,6 +48,9 @@
       apt:
         update_cache: yes
 
+    # =========================================================================
+    # 2. Instalação do Docker
+    # =========================================================================
     - name: Instalar Docker
       apt:
         name:
@@ -67,11 +73,47 @@
         groups: docker
         append: yes
 
-    - name: Verificar versão
+    # =========================================================================
+    # 3. TCP Keepalive para Docker Swarm
+    # =========================================================================
+    - name: Configurar TCP keepalive para Docker Swarm
+      copy:
+        dest: /etc/sysctl.d/99-tcp-keepalive.conf
+        content: |
+          # TCP Keepalive para Docker Swarm
+          # Detecta nós caídos em ~12 min (padrão do kernel: 2h)
+          #
+          # tcp_keepalive_time: tempo de inatividade antes do primeiro probe
+          # tcp_keepalive_intvl: intervalo entre probes
+          # tcp_keepalive_probes: número de probes antes de declarar morto
+          #
+          # Detecção total: 600 + (30 * 5) = 750s = 12.5 min
+          net.ipv4.tcp_keepalive_time = 600
+          net.ipv4.tcp_keepalive_intvl = 30
+          net.ipv4.tcp_keepalive_probes = 5
+      notify: reload sysctl
+
+    # =========================================================================
+    # 4. Verificação
+    # =========================================================================
+    - name: Verificar versão do Docker
       command: docker --version
       register: docker_version_output
       changed_when: false
 
-    - name: Mostrar versão
+    - name: Mostrar versão do Docker
       debug:
         msg: "{{ docker_version_output.stdout }}"
+
+    - name: Verificar keepalive aplicado
+      command: sysctl net.ipv4.tcp_keepalive_time
+      register: keepalive_check
+      changed_when: false
+
+    - name: Mostrar keepalive
+      debug:
+        msg: "{{ keepalive_check.stdout }}"
+
+  handlers:
+    - name: reload sysctl
+      command: sysctl --system
