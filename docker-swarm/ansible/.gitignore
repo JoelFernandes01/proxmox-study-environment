@@ -1,0 +1,13 @@
+# Inventário gerado automaticamente pelo Terraform
+inventory/
+
+# Cache do Ansible
+*.retry
+.ansible/
+
+# Vault password file (NUNCA commitar)
+.vault_pass
+*.vault_pass
+
+# Logs
+*.log
