@@ -8,7 +8,7 @@
 
 ## 📖 Documentos
 
-A documentação está organizada em **10 documentos** sequenciais. Recomenda-se lê-los na ordem:
+A documentação está organizada em **11 documentos** sequenciais. Recomenda-se lê-los na ordem:
 
 | # | Documento | Assunto |
 |---|-----------|---------|
@@ -22,6 +22,7 @@ A documentação está organizada em **10 documentos** sequenciais. Recomenda-se
 | **8** | [08-PostgreSQL-Multi-Disco-Ansible-Vault.md](./08-PostgreSQL-Multi-Disco-Ansible-Vault.md) | PostgreSQL multi-disco com Ansible Vault |
 | **9** | [09-MariaDB-Multi-Disco-Ansible-Vault.md](./09-MariaDB-Multi-Disco-Ansible-Vault.md) | MariaDB multi-disco com Ansible Vault |
 | **10** | [10-NFS-Server-Ansible.md](./10-NFS-Server-Ansible.md) | Servidor NFS para persistência das stacks |
+| **11** | [11-Migracao-Storage-LVM-Thin.md](./11-Migracao-Storage-LVM-Thin.md) | Migração de storage dir para LVM-Thin |
 
 ---
 
@@ -68,6 +69,7 @@ proxmox-study-environment/
 ├── 08-PostgreSQL-Multi-Disco-Ansible-Vault.md
 ├── 09-MariaDB-Multi-Disco-Ansible-Vault.md
 ├── 10-NFS-Server-Ansible.md
+├── 11-Migracao-Storage-LVM-Thin.md
 └── docker-swarm/                                    ← código Terraform + Ansible
     ├── main.tf
     ├── variables.tf
