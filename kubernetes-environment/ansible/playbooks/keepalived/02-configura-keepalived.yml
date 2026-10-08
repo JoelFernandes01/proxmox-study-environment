@@ -1,0 +1,40 @@
+---
+- name: Configurar Keepalived com VIP 10.0.39.50
+  hosts: k8s_haproxy
+  become: true
+  tasks:
+    - name: Instalar Keepalived
+      apt:
+        name: keepalived
+        state: present
+
+    - name: Definir estado e prioridade conforme o host
+      set_fact:
+        vrrp_state: "{{ 'MASTER' if inventory_hostname == 'k8s-haproxy-01' else 'BACKUP' }}"
+        vrrp_priority: "{{ 150 if inventory_hostname == 'k8s-haproxy-01' else 120 }}"
+
+    - name: Criar configuracao do Keepalived
+      copy:
+        dest: /etc/keepalived/keepalived.conf
+        content: |
+          vrrp_instance VI_1 {
+              state {{ vrrp_state }}
+              interface eth0
+              virtual_router_id 51
+              priority {{ vrrp_priority }}
+              advert_int 1
+              authentication {
+                  auth_type PASS
+                  auth_pass k8s_ha_secret
+              }
+              virtual_ipaddress {
+                  10.0.39.50/24
+              }
+          }
+        mode: '0644'
+
+    - name: Iniciar e habilitar Keepalived
+      systemd:
+        name: keepalived
+        state: restarted
+        enabled: yes

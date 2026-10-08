@@ -1,0 +1,21 @@
+---
+- name: Pós-instalação do Cluster (CNI Calico, Helm e Metrics Server)
+  hosts: k8s-control-plane-01
+  become: true
+  tasks:
+    - name: Instalar CNI Calico
+      become_user: connect
+      command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+
+    - name: Baixar script oficial do Helm
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get_helm.sh
+        mode: '0755'
+
+    - name: Executar instalador do Helm
+      command: /tmp/get_helm.sh
+
+    - name: Instalar Metrics Server no cluster (para uso do kubectl top)
+      become_user: connect
+      command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

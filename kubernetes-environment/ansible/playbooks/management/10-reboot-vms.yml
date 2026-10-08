@@ -1,0 +1,8 @@
+---
+- name: Reiniciar todas as VMs do ambiente
+  hosts: all
+  become: true
+  tasks:
+    - name: Executar reboot
+      reboot:
+        reboot_timeout: 300

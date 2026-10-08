@@ -1,0 +1,51 @@
+---
+- name: Configurar HAProxy para Balanceamento do API Server (:6443)
+  hosts: k8s_haproxy
+  become: true
+  tasks:
+    - name: Instalar HAProxy
+      apt:
+        name: haproxy
+        state: present
+
+    - name: Configurar haproxy.cfg
+      copy:
+        dest: /etc/haproxy/haproxy.cfg
+        content: |
+          global
+              log /dev/log local0
+              log /dev/log local1 notice
+              chroot /var/lib/haproxy
+              user haproxy
+              group haproxy
+              daemon
+
+          defaults
+              log     global
+              mode    tcp
+              option  tcplog
+              option  dontlognull
+              timeout connect 5000ms
+              timeout client  50000ms
+              timeout server  50000ms
+
+          frontend k8s-api-frontend
+              bind *:6443
+              mode tcp
+              option tcplog
+              default_backend k8s-api-backend
+
+          backend k8s-api-backend
+              mode tcp
+              option tcp-check
+              balance roundrobin
+              server k8s-control-plane-01 10.0.39.43:6443 check fall 3 rise 2
+              server k8s-control-plane-02 10.0.39.44:6443 check fall 3 rise 2
+              server k8s-control-plane-03 10.0.39.45:6443 check fall 3 rise 2
+        mode: '0644'
+
+    - name: Reiniciar e habilitar HAProxy
+      systemd:
+        name: haproxy
+        state: restarted
+        enabled: yes

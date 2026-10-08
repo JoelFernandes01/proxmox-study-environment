@@ -1,0 +1,23 @@
+---
+- name: Verificar status do cluster Kubernetes
+  hosts: k8s-control-plane-01
+  become: true
+  become_user: connect
+  tasks:
+    - name: Obter status dos nos do cluster
+      command: kubectl get nodes -o wide
+      register: nodes_output
+      changed_when: false
+
+    - name: Exibir status dos nos
+      debug:
+        msg: "{{ nodes_output.stdout_lines }}"
+
+    - name: Obter status de todos os pods do sistema
+      command: kubectl get pods -A
+      register: pods_output
+      changed_when: false
+
+    - name: Exibir status dos pods
+      debug:
+        msg: "{{ pods_output.stdout_lines }}"

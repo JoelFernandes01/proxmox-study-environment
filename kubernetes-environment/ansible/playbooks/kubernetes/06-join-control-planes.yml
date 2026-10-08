@@ -1,0 +1,26 @@
+---
+- name: Adicionar Control Planes secundarios ao cluster
+  hosts: k8s_control_planes
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Executar kubeadm join nos Control Planes secundarios
+      command: "{{ hostvars['k8s-control-plane-01']['join_control_plane_cmd'] }}"
+      when: inventory_hostname != 'k8s-control-plane-01'
+
+    - name: Criar ~/.kube para o usuario connect
+      file:
+        path: /home/connect/.kube
+        state: directory
+        owner: connect
+        group: connect
+        mode: '0755'
+
+    - name: Copiar kubeconfig para o usuario connect
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/connect/.kube/config
+        remote_src: true
+        owner: connect
+        group: connect
+        mode: '0600'

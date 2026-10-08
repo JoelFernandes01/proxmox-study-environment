@@ -1,0 +1,8 @@
+---
+- name: Adicionar workers ao cluster
+  hosts: k8s_workers
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Executar kubeadm join para workers
+      command: "{{ hostvars['k8s-control-plane-01']['join_worker_cmd'] }}"

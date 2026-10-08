@@ -1,0 +1,7 @@
+---
+- name: Desligar todas as VMs do ambiente
+  hosts: all
+  become: true
+  tasks:
+    - name: Executar shutdown
+      command: shutdown -h now

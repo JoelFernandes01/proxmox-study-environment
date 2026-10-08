@@ -1,0 +1,43 @@
+---
+- name: Inicializar o cluster Kubernetes no Control Plane 01
+  hosts: k8s-control-plane-01
+  become: true
+  tasks:
+    - name: Gerar manifesto do kubeadm-config.yaml
+      copy:
+        dest: /root/kubeadm-config.yaml
+        content: |
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: ClusterConfiguration
+          kubernetesVersion: v1.30.0
+          controlPlaneEndpoint: "10.0.39.50:6443"
+          networking:
+            podSubnet: "10.244.0.0/16"
+          ---
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: InitConfiguration
+          nodeRegistration:
+            criSocket: "unix:///run/containerd/containerd.sock"
+        mode: '0644'
+
+    - name: Inicializar cluster via kubeadm
+      command: kubeadm init --config /root/kubeadm-config.yaml
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Criar diretorio .kube para o usuario connect
+      file:
+        path: /home/connect/.kube
+        state: directory
+        owner: connect
+        group: connect
+        mode: '0755'
+
+    - name: Copiar admin.conf para o usuario connect
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/connect/.kube/config
+        remote_src: yes
+        owner: connect
+        group: connect
+        mode: '0600'

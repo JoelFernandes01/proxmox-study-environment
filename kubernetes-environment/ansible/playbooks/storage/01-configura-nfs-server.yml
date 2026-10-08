@@ -1,0 +1,34 @@
+---
+- name: Configurar Servidor de Arquivos NFS
+  hosts: k8s_nfs
+  become: true
+  tasks:
+    - name: Instalar pacotes do servidor NFS
+      apt:
+        name:
+          - nfs-kernel-server
+          - nfs-common
+        state: present
+        update_cache: true
+
+    - name: Criar diretório de exportação para o Kubernetes
+      file:
+        path: /srv/nfs/k8s
+        state: directory
+        mode: '0777'
+
+    - name: Configurar o arquivo /etc/exports
+      lineinfile:
+        path: /etc/exports
+        line: '/srv/nfs/k8s 10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)'
+        regexp: '^/srv/nfs/k8s'
+        state: present
+
+    - name: Exportar compartilhamentos NFS
+      command: exportfs -rav
+
+    - name: Habilitar e reiniciar o serviço NFS
+      systemd:
+        name: nfs-kernel-server
+        enabled: true
+        state: restarted

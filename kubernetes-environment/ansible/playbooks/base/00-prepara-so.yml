@@ -1,0 +1,45 @@
+---
+- name: Atualizar pacotes, desabilitar cloud-init e configurar /etc/hosts
+  hosts: all
+  become: true
+  tasks:
+    - name: Atualizar cache de pacotes
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Instalar pacotes uteis do sistema
+      apt:
+        name: [git, curl, vim, python3, python3-pip, sudo, openssl, ca-certificates, fish]
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Desabilitar alteracoes do cloud-init no /etc/hosts
+      copy:
+        dest: /etc/cloud/cloud.cfg.d/99-disable-hosts.cfg
+        content: |
+          update_etc_hosts: false
+          manage_etc_hosts: false
+        mode: '0644'
+
+    - name: Configurar /etc/hosts em todas as VMs
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          10.0.39.50 k8s-vip.nverse.local k8s-vip
+          10.0.39.41 k8s-haproxy-01.nverse.local k8s-haproxy-01
+          10.0.39.42 k8s-haproxy-02.nverse.local k8s-haproxy-02
+          10.0.39.43 k8s-control-plane-01.nverse.local k8s-control-plane-01
+          10.0.39.44 k8s-control-plane-02.nverse.local k8s-control-plane-02
+          10.0.39.45 k8s-control-plane-03.nverse.local k8s-control-plane-03
+          10.0.39.61 k8s-worker-01.nverse.local k8s-worker-01
+          10.0.39.62 k8s-worker-02.nverse.local k8s-worker-02
+          10.0.39.63 k8s-worker-03.nverse.local k8s-worker-03
+        state: present
+
+    - name: Configurar sudoers para o usuario connect sem senha
+      copy:
+        dest: /etc/sudoers.d/connect
+        content: "connect ALL=(ALL) NOPASSWD:ALL\n"
+        mode: '0440'

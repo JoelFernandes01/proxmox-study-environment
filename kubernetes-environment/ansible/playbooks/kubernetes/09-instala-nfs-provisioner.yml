@@ -1,0 +1,29 @@
+---
+- name: Instalar NFS Subdir External Provisioner via Helm
+  hosts: k8s-control-plane-01
+  become: true
+  tasks:
+    - name: Garantir instalação do cliente nfs em todos os Workers
+      delegate_to: "{{ item }}"
+      apt:
+        name: nfs-common
+        state: present
+      loop: "{{ groups['k8s_workers'] }}"
+
+    - name: Adicionar repositório Helm do NFS Provisioner
+      become_user: connect
+      command: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+
+    - name: Atualizar repositórios Helm
+      become_user: connect
+      command: helm repo update
+
+    - name: Deploy do NFS Provisioner no cluster
+      become_user: connect
+      command: >
+        helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+        --namespace kube-system
+        --set nfs.server=10.0.39.70
+        --set nfs.path=/srv/nfs/k8s
+        --set storageClass.name=nfs-client
+        --set storageClass.defaultClass=true

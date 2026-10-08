@@ -1,0 +1,15 @@
+---
+# =========================================================================
+# Playbook Mestre — Esteira Completa de Instalação do K8s HA (nverse.local)
+# =========================================================================
+
+- import_playbook: playbooks/base/00-prepara-so.yml
+- import_playbook: playbooks/kubernetes/01-prepara-k8s-prereqs.yml
+- import_playbook: playbooks/keepalived/02-configura-keepalived.yml
+- import_playbook: playbooks/loadbalancer/03-configura-haproxy.yml
+- import_playbook: playbooks/kubernetes/04-init-control-plane-01.yml
+- import_playbook: playbooks/kubernetes/05-gera-tokens-join.yml
+- import_playbook: playbooks/kubernetes/06-join-control-planes.yml
+- import_playbook: playbooks/kubernetes/07-join-workers.yml
+- import_playbook: playbooks/kubernetes/08-instala-cni-calico.yml
+- import_playbook: playbooks/management/12-verifica-cluster.yml
