@@ -18,10 +18,10 @@
       become_user: connect
       command: helm repo update
 
-    - name: Deploy do NFS Provisioner no cluster
+    - name: Deploy / Upgrade do NFS Provisioner no cluster
       become_user: connect
       command: >
-        helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+        helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
         --namespace kube-system
         --set nfs.server=10.0.39.70
         --set nfs.path=/srv/nfs/k8s

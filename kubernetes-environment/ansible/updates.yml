@@ -1,0 +1,24 @@
+---
+- name: Updates & Upgrades
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Updates Package List
+      ansible.builtin.apt:
+        update_cache: true
+      register: apt_update_result
+
+    - name: Show update status
+      ansible.builtin.debug:
+        msg: "Installing Updates"
+
+    - name: Upgrades Package List
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
+      register: apt_upgrade_result
+
+    - name: Show upgrade status
+      ansible.builtin.debug:
+        msg: "Installing Upgrades"

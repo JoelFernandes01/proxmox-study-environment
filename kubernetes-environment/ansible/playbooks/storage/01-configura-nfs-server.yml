@@ -3,7 +3,7 @@
   hosts: k8s_nfs
   become: true
   tasks:
-    - name: Instalar pacotes do servidor NFS
+    - name: Atualizar cache de pacotes e instalar o servidor NFS
       apt:
         name:
           - nfs-kernel-server
@@ -27,8 +27,8 @@
     - name: Exportar compartilhamentos NFS
       command: exportfs -rav
 
-    - name: Habilitar e reiniciar o serviço NFS
+    - name: Habilitar e iniciar o serviço NFS (nfs-server)
       systemd:
-        name: nfs-kernel-server
+        name: nfs-server
         enabled: true
         state: restarted
