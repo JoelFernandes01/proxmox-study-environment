@@ -13,4 +13,5 @@
 # - import_playbook: playbooks/kubernetes/06-join-control-planes.yml
 # - import_playbook: playbooks/kubernetes/07-join-workers.yml
 # - import_playbook: playbooks/kubernetes/08-instala-cni-calico.yml
-# - import_playbook: playbooks/management/12-verifica-cluster.yml
+# - import_playbook: playbooks/kubernetes/09-instala-nfs-provisioner.yml
+ - import_playbook: playbooks/management/12-verifica-cluster.yml
