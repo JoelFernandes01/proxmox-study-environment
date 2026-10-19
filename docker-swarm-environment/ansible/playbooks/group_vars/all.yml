@@ -6,7 +6,7 @@
 # --- Rede ---
 swarm_network: "10.0.39.0/24"
 swarm_gateway: "10.0.39.1"
-swarm_manager_ip: "10.0.39.100"
+swarm_manager_ip: "10.0.39.31"
 
 # --- NTP ---
 ntp_servers:

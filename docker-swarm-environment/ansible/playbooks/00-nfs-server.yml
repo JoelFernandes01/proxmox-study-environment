@@ -1,0 +1,52 @@
+---
+# =========================================================================
+# Playbook 00 — Configuração do Servidor NFS no swm-nfs-01
+# =========================================================================
+
+- name: Configurar Servidor NFS no swm-nfs-01
+  hosts: nfs
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Instalar nfs-kernel-server
+      apt:
+        name: nfs-kernel-server
+        state: present
+        update_cache: true
+
+    - name: Criar diretórios de exportação no NFS
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0777'
+        owner: nobody
+        group: nogroup
+      loop:
+        - /srv/nfs/jenkins
+        - /srv/nfs/sonarqube
+        - /srv/nfs/portainer
+
+    - name: Configurar exportações no /etc/exports
+      copy:
+        dest: /etc/exports
+        content: |
+          /srv/nfs/jenkins    10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/sonarqube  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/portainer  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+      notify: Reload NFS exports
+
+    - name: Liberar porta do NFS no UFW
+      ufw:
+        rule: allow
+        port: '2049'
+        proto: tcp
+
+    - name: Garantir que o serviço NFS está ativo e habilitado
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reload NFS exports
+      command: exportfs -ra

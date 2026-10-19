@@ -1,23 +1,22 @@
 ---
 # =========================================================================
-# Playbook 03+04 — Inicializar Swarm e adicionar todos os nós
+# Playbook 03 — Inicializar Docker Swarm e adicionar todos os nós
 # =========================================================================
 
 - name: Inicializar Docker Swarm no manager 01
   hosts: managers[0]
   become: true
   gather_facts: true
-
   tasks:
-    - name: Verificar estado do Swarm
-      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
-      register: swarm_state
+    - name: Verificar se o nó é Manager ativo do Swarm
+      command: docker info --format '{% raw %}{{.Swarm.ControlAvailable}}{% endraw %}'
+      register: swarm_control
       changed_when: false
       failed_when: false
 
     - name: Inicializar Swarm
       command: docker swarm init --advertise-addr {{ swarm_manager_ip }}
-      when: swarm_state.stdout != "active"
+      when: swarm_control.stdout != "true"
 
     - name: Obter token worker
       command: docker swarm join-token -q worker
@@ -44,51 +43,52 @@
   hosts: managers[1:]
   become: true
   gather_facts: true
-
   tasks:
-    - name: Verificar estado do Swarm
-      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
-      register: swarm_state
+    - name: Verificar se o nó é Manager ativo do Swarm
+      command: docker info --format '{% raw %}{{.Swarm.ControlAvailable}}{% endraw %}'
+      register: swarm_control
       changed_when: false
       failed_when: false
 
     - name: Entrar como manager
       command: >
-        docker swarm join
-        --token {{ hostvars[groups['managers'][0]].swarm_manager_token }}
-        {{ swarm_manager_ip }}:2377
-      when: swarm_state.stdout != "active"
+        docker swarm join --token {{ hostvars[groups['managers'][0]].swarm_manager_token }} {{ swarm_manager_ip }}:2377
+      when: swarm_control.stdout != "true"
+      register: join_manager_result
+      failed_when:
+        - join_manager_result.rc != 0
+        - "'already part of a swarm' not in join_manager_result.stderr"
 
 - name: Adicionar workers
   hosts: workers
   become: true
   gather_facts: true
-
   tasks:
     - name: Verificar estado do Swarm
-      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+      command: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
       register: swarm_state
       changed_when: false
       failed_when: false
 
     - name: Entrar como worker
       command: >
-        docker swarm join
-        --token {{ hostvars[groups['managers'][0]].swarm_worker_token }}
-        {{ swarm_manager_ip }}:2377
-      when: swarm_state.stdout != "active"
+        docker swarm join --token {{ hostvars[groups['managers'][0]].swarm_worker_token }} {{ swarm_manager_ip }}:2377
+      when: "'active' not in swarm_state.stdout"
+      register: join_worker_result
+      failed_when:
+        - join_worker_result.rc != 0
+        - "'already part of a swarm' not in join_worker_result.stderr"
 
 - name: Validar cluster
   hosts: managers[0]
   become: true
   gather_facts: true
-
   tasks:
-    - name: Listar nós
+    - name: Listar nós do cluster Swarm
       command: docker node ls
       register: node_list
       changed_when: false
 
-    - name: Mostrar nós
+    - name: Mostrar status dos nós
       debug:
         msg: "{{ node_list.stdout_lines }}"

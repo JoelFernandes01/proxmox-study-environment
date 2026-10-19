@@ -1,0 +1,86 @@
+---
+- name: Criar redes e volumes
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Criar rede traefik-public
+      command: docker network create --driver overlay --attachable traefik-public
+      register: net_traefik
+      failed_when:
+        - net_traefik.rc != 0
+        - "'already exists' not in net_traefik.stderr"
+
+    - name: Criar rede backend
+      command: docker network create --driver overlay --attachable backend
+      register: net_backend
+      failed_when:
+        - net_backend.rc != 0
+        - "'already exists' not in net_backend.stderr"
+
+    - name: Criar volume traefik-certificates
+      command: docker volume create traefik-certificates
+      register: vol_traefik
+      failed_when:
+        - vol_traefik.rc != 0
+        - "'already exists' not in vol_traefik.stderr"
+
+    - name: Criar volume portainer-data
+      command: docker volume create portainer-data
+      register: vol_portainer
+      failed_when:
+        - vol_portainer.rc != 0
+        - "'already exists' not in vol_portainer.stderr"
+
+- name: Deploy Traefik
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Copiar stack
+      copy:
+        dest: /tmp/traefik.yml
+        content: "{{ lookup('template', 'traefik.yml.j2') }}"
+
+    - name: Deploy
+      command: docker stack deploy -c /tmp/traefik.yml traefik
+
+- name: Deploy Portainer
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Copiar stack
+      copy:
+        dest: /tmp/portainer.yml
+        content: "{{ lookup('template', 'portainer.yml.j2') }}"
+
+    - name: Deploy
+      command: docker stack deploy -c /tmp/portainer.yml portainer
+
+- name: Validar stacks
+  hosts: managers[0]
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Listar stacks
+      command: docker stack ls
+      register: stack_list
+      changed_when: false
+
+    - name: Listar serviços
+      command: docker service ls
+      register: service_list
+      changed_when: false
+
+    - name: Mostrar resultado
+      debug:
+        msg:
+          - "=== STACKS ==="
+          - "{{ stack_list.stdout_lines }}"
+          - "=== SERVICES ==="
+          - "{{ service_list.stdout_lines }}"

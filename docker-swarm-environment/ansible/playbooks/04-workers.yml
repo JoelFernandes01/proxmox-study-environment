@@ -1,0 +1,54 @@
+---
+# =========================================================================
+# Playbook 04 — Adicionar Nós Workers ao Docker Swarm
+# =========================================================================
+
+- name: Obter token de Worker a partir do Manager Líder
+  hosts: managers[0]
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Obter token de Worker
+      command: docker swarm join-token -q worker
+      register: worker_token
+      changed_when: false
+
+    - name: Registrar token de Worker
+      set_fact:
+        swarm_worker_token: "{{ worker_token.stdout }}"
+
+- name: Adicionar nós Workers ao cluster Swarm
+  hosts: workers
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Verificar estado atual do Swarm no Worker
+      command: docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: swarm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Executar join do nó Worker no Swarm
+      command: >
+        docker swarm join
+        --token {{ hostvars[groups['managers'][0]].swarm_worker_token }}
+        {{ swarm_manager_ip }}:2377
+      when: swarm_state.stdout != "active"
+      register: join_worker_result
+      failed_when:
+        - join_worker_result.rc != 0
+        - "'already part of a swarm' not in join_worker_result.stderr"
+
+- name: Validar todos os nós no Cluster Swarm
+  hosts: managers[0]
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Listar todos os nós do cluster
+      command: docker node ls
+      register: node_list
+      changed_when: false
+
+    - name: Exibir estado final dos nós (Managers + Workers)
+      debug:
+        msg: "{{ node_list.stdout_lines }}"

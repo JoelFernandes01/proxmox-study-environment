@@ -1,4 +1,6 @@
 # =========================================================================
+# Credenciais e Conexão Proxmox
+# =========================================================================
 variable "proxmox_api_url" {
   type        = string
   description = "A URL de API do servidor Proxmox"
@@ -23,12 +25,13 @@ variable "target_node" {
 }
 
 # =========================================================================
+# Template e Nós
+# =========================================================================
 variable "template_vm_id" {
   type        = string
   description = "O ID da VM do template (Ex: 8000)"
 }
 
-# =========================================================================
 variable "swarm_managers" {
   type        = list(string)
   default     = ["docker-swarm-01", "docker-swarm-02", "docker-swarm-03"]
@@ -42,19 +45,35 @@ variable "swarm_workers" {
 }
 
 # =========================================================================
+# Configurações do NFS Server Dedicado (swm-nfs-01)
+# =========================================================================
+variable "swarm_nfs_ip" {
+  type        = number
+  default     = 30
+  description = "Número do host IP do NFS Server do Swarm (10.0.39.30)"
+}
+
+variable "swarm_nfs_vm_id" {
+  type        = number
+  default     = 9030
+  description = "VM ID do NFS Server do Docker Swarm"
+}
+
+# =========================================================================
+# Faixas de IPs e VM IDs
+# =========================================================================
 variable "swarm_manager_ip_start" {
   type        = number
-  default     = 100
-  description = "Número de host inicial para os managers (10.0.39.X)"
+  default     = 31
+  description = "Host IP inicial dos managers (10.0.39.31)"
 }
 
 variable "swarm_worker_ip_start" {
   type        = number
-  default     = 120
-  description = "Número de host inicial para os workers (10.0.39.X)"
+  default     = 35
+  description = "Host IP inicial dos workers (10.0.39.35)"
 }
 
-# =========================================================================
 variable "swarm_manager_vm_id_start" {
   type        = number
   default     = 9000
@@ -67,6 +86,8 @@ variable "swarm_worker_vm_id_start" {
   description = "VM ID inicial para os workers"
 }
 
+# =========================================================================
+# Recursos e Hardware da VM
 # =========================================================================
 variable "vm_cores" {
   type        = string
@@ -89,9 +110,11 @@ variable "vm_storage_id" {
 variable "vm_disk_size" {
   type        = string
   default     = "50"
-  description = "Tamanho do disco do Sistema Operacional (SCSI 0) em GB"
+  description = "Tamanho do disco do Sistema Operacional em GB"
 }
 
+# =========================================================================
+# Rede e SSH
 # =========================================================================
 variable "vm_network_cidr" {
   type        = string
@@ -111,14 +134,13 @@ variable "vm_bridge" {
   description = "Bridge de rede do Proxmox"
 }
 
-# =========================================================================
 variable "vm_user" {
   type        = string
   default     = "connect"
-  description = "Usuário administrador já existente no template"
+  description = "Usuário administrador existente no template"
 }
 
 variable "ssh_public_key" {
   type        = string
-  description = "Chave SSH pública para acesso de administração"
+  description = "Chave SSH pública para administração"
 }

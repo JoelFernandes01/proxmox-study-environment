@@ -11,13 +11,13 @@
 
     - name: Atualizar cache apt
       apt:
-        update_cache: yes
+        update_cache: true
         cache_valid_time: 3600
 
     - name: Atualizar pacotes
       apt:
         upgrade: dist
-        autoremove: yes
+        autoremove: true
 
     - name: Instalar chrony
       apt:
@@ -39,7 +39,7 @@
     - name: Habilitar chrony
       systemd:
         name: chrony
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Instalar ferramentas essenciais

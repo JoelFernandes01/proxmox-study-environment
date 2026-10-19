@@ -1,78 +1,55 @@
 ---
-- name: Criar redes e volumes
+# =========================================================================
+# Playbook 05 — Implantar Stacks de Infraestrutura e CI/CD com NFS
+# =========================================================================
+
+- name: Implantar Stacks no Docker Swarm
   hosts: managers[0]
   become: true
-  gather_facts: true
-
+  gather_facts: false
   tasks:
-    - name: Criar rede traefik-public
-      command: docker network create --driver overlay --attachable traefik-public
-      register: net_traefik
+    - name: Criar rede overlay publica do Traefik
+      command: docker network create --driver=overlay --attachable traefik-public
+      register: net_result
       failed_when:
-        - net_traefik.rc != 0
-        - "'already exists' not in net_traefik.stderr"
+        - net_result.rc != 0
+        - "'already exists' not in net_result.stderr"
+      changed_when: "'already exists' not in net_result.stderr"
 
-    - name: Criar rede backend
-      command: docker network create --driver overlay --attachable backend
-      register: net_backend
-      failed_when:
-        - net_backend.rc != 0
-        - "'already exists' not in net_backend.stderr"
+    - name: Criar diretorio temporario para os manifestos
+      file:
+        path: /tmp/stacks
+        state: directory
+        mode: '0755'
 
-    - name: Criar volume traefik-certificates
-      command: docker volume create traefik-certificates
-      register: vol_traefik
-      failed_when:
-        - vol_traefik.rc != 0
-        - "'already exists' not in vol_traefik.stderr"
+    - name: Renderizar templates das Stacks
+      template:
+        src: "{{ item.src }}"
+        dest: "/tmp/stacks/{{ item.dest }}"
+      loop:
+        - { src: "templates/traefik.yml.j2", dest: "traefik.yml" }
+        - { src: "templates/portainer.yml.j2", dest: "portainer.yml" }
+        - { src: "templates/cicd-pipeline.yml.j2", dest: "cicd-pipeline.yml" }
 
-    - name: Criar volume portainer-data
-      command: docker volume create portainer-data
-      register: vol_portainer
-      failed_when:
-        - vol_portainer.rc != 0
-        - "'already exists' not in vol_portainer.stderr"
+    - name: Deploy da Stack Traefik
+      command: docker stack deploy -c /tmp/stacks/traefik.yml traefik
 
-- name: Deploy Traefik
-  hosts: managers[0]
-  become: true
-  gather_facts: true
+    - name: Deploy da Stack Portainer (com NFS)
+      command: docker stack deploy -c /tmp/stacks/portainer.yml portainer
 
-  tasks:
-    - name: Copiar stack
-      copy:
-        dest: /tmp/traefik.yml
-        content: "{{ lookup('template', 'traefik.yml.j2') }}"
+    - name: Deploy da Stack CI/CD Jenkins e SonarQube (com NFS)
+      command: docker stack deploy -c /tmp/stacks/cicd-pipeline.yml cicd
 
-    - name: Deploy
-      command: docker stack deploy -c /tmp/traefik.yml traefik
+    - name: Aguardar inicializacao das stacks
+      pause:
+        seconds: 10
 
-- name: Deploy Portainer
-  hosts: managers[0]
-  become: true
-  gather_facts: true
-
-  tasks:
-    - name: Copiar stack
-      copy:
-        dest: /tmp/portainer.yml
-        content: "{{ lookup('template', 'portainer.yml.j2') }}"
-
-    - name: Deploy
-      command: docker stack deploy -c /tmp/portainer.yml portainer
-
-- name: Validar stacks
-  hosts: managers[0]
-  become: true
-  gather_facts: true
-
-  tasks:
-    - name: Listar stacks
+    - name: Listar Stacks ativas
       command: docker stack ls
       register: stack_list
       changed_when: false
 
-    - name: Listar serviços
+    - name: Listar Servicos ativos
       command: docker service ls
       register: service_list
       changed_when: false
