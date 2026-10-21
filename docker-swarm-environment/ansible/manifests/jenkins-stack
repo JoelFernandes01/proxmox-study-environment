@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    user: root
+    ports:
+      - "50000:50000"  # Porta para agentes de build (JNLP)
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock  # Permite ao Jenkins rodar builds Docker-in-Docker
+    networks:
+      - traefik-public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-public"
+        - "traefik.http.routers.jenkins.rule=Host(`jenkins.nverse.local`)"
+        - "traefik.http.routers.jenkins.entrypoints=web"
+        - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+
+networks:
+  traefik-public:
+    external: true
+
+volumes:
+  jenkins_data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=10.0.39.30,rw,nfsvers=4"
+      device: ":/srv/nfs/jenkins"

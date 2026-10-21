@@ -1,0 +1,116 @@
+---
+# =========================================================================
+# Playbook 00 — Configuração do Servidor NFS no swm-nfs-01
+# =========================================================================
+- name: Configurar Servidor NFS no swm-nfs-01
+  hosts: nfs
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Configurar fuso horário
+      community.general.timezone:
+        name: "{{ timezone }}"
+
+    - name: Atualizar cache apt
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Atualizar pacotes
+      apt:
+        upgrade: dist
+        autoremove: true
+
+    - name: Instalar chrony
+      apt:
+        name: chrony
+        state: present
+
+    - name: Configurar chrony
+      copy:
+        dest: /etc/chrony/chrony.conf
+        content: |
+          {% for server in ntp_servers %}
+          pool {{ server }} iburst
+          {% endfor %}
+          driftfile /var/lib/chrony/chrony.drift
+          rtcsync
+          makestep 1 3
+      notify: restart chrony
+
+    - name: Habilitar chrony
+      systemd:
+        name: chrony
+        enabled: true
+        state: started
+
+    - name: Instalar ferramentas essenciais
+      apt:
+        name:
+          - vim
+          - nano
+          - htop
+          - ncdu
+          - curl
+          - wget
+          - net-tools
+          - dnsutils
+          - traceroute
+          - mtr-tiny
+          - git
+          - jq
+          - yq
+          - tree
+          - unzip
+          - bash-completion
+        state: present
+
+    - name: Instalar nfs-kernel-server e nfs-common
+      apt:
+        name: 
+          - nfs-kernel-server
+          - nfs-common
+        state: present
+        update_cache: true
+
+    - name: Criar diretórios de exportação no NFS
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0777'
+        owner: nobody
+        group: nogroup
+      loop:
+        - /srv/nfs/jenkins
+        - /srv/nfs/sonarqube
+        - /srv/nfs/portainer
+
+    - name: Configurar exportações no /etc/exports
+      copy:
+        dest: /etc/exports
+        content: |
+          /srv/nfs/jenkins    10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/sonarqube  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/portainer  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+      notify: Reload NFS exports
+
+    - name: Liberar porta do NFS no UFW
+      ufw:
+        rule: allow
+        port: '2049'
+        proto: tcp
+
+    - name: Garantir que o serviço NFS está ativo e habilitado
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart chrony
+      systemd:
+        name: chrony
+        state: restarted
+
+    - name: Reload NFS exports
+      command: exportfs -ra

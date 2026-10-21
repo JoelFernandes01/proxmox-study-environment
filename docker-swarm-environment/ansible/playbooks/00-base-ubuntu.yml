@@ -61,6 +61,7 @@
           - tree
           - unzip
           - bash-completion
+          - nfs-common
         state: present
 
     - name: Desabilitar swap (runtime)

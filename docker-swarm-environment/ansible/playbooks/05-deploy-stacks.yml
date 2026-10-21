@@ -29,16 +29,12 @@
       loop:
         - { src: "templates/traefik.yml.j2", dest: "traefik.yml" }
         - { src: "templates/portainer.yml.j2", dest: "portainer.yml" }
-        - { src: "templates/cicd-pipeline.yml.j2", dest: "cicd-pipeline.yml" }
-
+        
     - name: Deploy da Stack Traefik
       command: docker stack deploy -c /tmp/stacks/traefik.yml traefik
 
     - name: Deploy da Stack Portainer (com NFS)
       command: docker stack deploy -c /tmp/stacks/portainer.yml portainer
-
-    - name: Deploy da Stack CI/CD Jenkins e SonarQube (com NFS)
-      command: docker stack deploy -c /tmp/stacks/cicd-pipeline.yml cicd
 
     - name: Aguardar inicializacao das stacks
       pause:

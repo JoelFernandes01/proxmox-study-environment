@@ -19,6 +19,11 @@ services:
   portainer:
     image: portainer/portainer-ce:2.19.5
     command: -H tcp://tasks.agent:9001 --tlsskipverify
+    ports:
+      - target: 9000
+        published: 9000
+        protocol: tcp
+        mode: ingress
     volumes:
       - portainer_data:/data
     networks:
@@ -31,10 +36,11 @@ services:
         constraints:
           - node.role == manager
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.portainer.rule=Host(`portainer.nverse.local`)"
-        - "traefik.http.routers.portainer.entrypoints=web"
-        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        traefik.enable: "true"
+        traefik.docker.network: "traefik-public"
+        traefik.http.routers.portainer.rule: "Host(`portainer.nverse.local`)"
+        traefik.http.routers.portainer.entrypoints: "web"
+        traefik.http.services.portainer.loadbalancer.server.port: "9000"
 
 networks:
   portainer-net:

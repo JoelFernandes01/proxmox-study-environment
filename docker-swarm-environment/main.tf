@@ -2,9 +2,9 @@
 # Locals — Define o Servidor NFS, Managers e Workers
 # =========================================================================
 locals {
-  # Servidor NFS Dedicado (swm-nfs-01 -> IP 10.0.39.30, VM ID 9030)
+  # Servidor NFS Dedicado (docker-nfs-01 -> IP 10.0.39.30, VM ID 9030)
   swarm_nfs = {
-    "swm-nfs-01" = {
+    "docker-nfs-01" = {
       vm_id = var.swarm_nfs_vm_id
       ip    = "${cidrhost(var.vm_network_cidr, var.swarm_nfs_ip)}/24"
       role  = "nfs"
