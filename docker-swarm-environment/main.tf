@@ -44,6 +44,8 @@ resource "proxmox_virtual_environment_vm" "docker_environment" {
   node_name   = var.target_node
   vm_id       = each.value.vm_id
 
+  stop_on_destroy = true
+
   timeout_create  = 3600
   timeout_clone   = 3600
   timeout_migrate = 1800
@@ -77,6 +79,14 @@ resource "proxmox_virtual_environment_vm" "docker_environment" {
 
   network_device {
     bridge = var.vm_bridge
+  }
+
+  startup {
+    order = (
+      each.value.role == "nfs" ? "1" :
+      each.value.role == "manager" ? "2" : "3"
+    )
+    up_delay = "30"
   }
 
   initialization {

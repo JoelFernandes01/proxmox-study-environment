@@ -1,8 +1,7 @@
 ---
-# =========================================================================
+# ========================================================================
 # Variáveis globais — Docker Swarm
-# =========================================================================
-
+# ========================================================================
 # --- Rede ---
 swarm_network: "10.0.39.0/24"
 swarm_gateway: "10.0.39.1"
@@ -24,10 +23,13 @@ swarm_ports_tcp:
   - 7946
   - 80
   - 443
+  - 2049
+  - 111
 
 swarm_ports_udp:
   - 7946
   - 4789
+  - 111
 
 # --- Docker ---
 docker_version: "latest"
@@ -35,7 +37,7 @@ docker_version: "latest"
 # --- Traefik ---
 traefik_version: "v2.11"
 traefik_domain: "nverse.local"
-traefik_email: "seu-email@dominio.com"
+traefik_email: "ti@nverse@.com.br"
 
 # --- Portainer ---
 portainer_version: "latest"

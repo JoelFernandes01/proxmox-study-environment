@@ -67,7 +67,7 @@
 
     - name: Instalar nfs-kernel-server e nfs-common
       apt:
-        name: 
+        name:
           - nfs-kernel-server
           - nfs-common
         state: present
@@ -84,6 +84,9 @@
         - /srv/nfs/jenkins
         - /srv/nfs/sonarqube
         - /srv/nfs/portainer
+        - /srv/nfs/semaphore
+        - /srv/nfs/monitoring
+        - /srv/nfs/glpi
 
     - name: Configurar exportações no /etc/exports
       copy:
@@ -92,6 +95,9 @@
           /srv/nfs/jenkins    10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/sonarqube  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/portainer  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/semaphore  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/monitoring 10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/glpi       10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
       notify: Reload NFS exports
 
     - name: Liberar porta do NFS no UFW

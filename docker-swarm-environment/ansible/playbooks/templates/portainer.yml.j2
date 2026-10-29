@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   agent:
-    image: portainer/agent:2.19.5
+#    image: portainer/agent:2.19.5
+    image: portainer/agent:2.45.3
     environment:
       AGENT_CLUSTER_ADDR: tasks.agent
     volumes:
@@ -17,7 +18,8 @@ services:
           - node.platform.os == linux
 
   portainer:
-    image: portainer/portainer-ce:2.19.5
+#    image: portainer/portainer-ce:2.19.5
+    image: portainer/portainer-ce:2.45.3
     command: -H tcp://tasks.agent:9001 --tlsskipverify
     ports:
       - target: 9000

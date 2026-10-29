@@ -1,60 +1,83 @@
 Comandos de Verificação e Inicialização
-1. Para obter a senha inicial do Jenkins diretamente pelos logs via terminal:
 
+### **1\. Comando para criar o usuário** **admin** **:**
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.37 'docker exec $(docker ps -q -f name=semaphore_semaphore) semaphore user add --admin --login admin --name "Admin" --email admin@nverse.local --password admin_password'
+```
+
+### **2\. Se o usuário** **admin** **já existir no banco, altere a senha diretamente com este:**
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.37 'docker exec $(docker ps -q -f name=semaphore_semaphore) semaphore user change-password --login admin --password admin_password'
+```
+
+Aqui está o comando ajustado para alterar a senha do usuário **admin** para **connect**:
+
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.37 'docker exec $(docker ps -q -f name=semaphore_semaphore) semaphore user change-by-login --login admin --password connect'
+```
+
+#### **Passo 1: Limpar e ajustar permissões no Servidor NFS (** **10.0.39.30** **)**
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.30 "sudo rm -rf /srv/nfs/semaphore/* &amp;&amp; sudo chown -R nobody:nogroup /srv/nfs/semaphore &amp;&amp; sudo chmod -R 777 /srv/nfs/semaphore"
+```
+
+#### **Passo 2: Forçar o reinício dos serviços no Swarm (** **10.0.39.31** **)**
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service update --force semaphore_semaphore-db &amp;&amp; docker service update --force semaphore_semaphore"
+```
+
+#### **Passo 3: Confirmar a subida e logs de inicialização**
+```
+ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service ps semaphore_semaphore-db &amp;&amp; docker service logs semaphore_semaphore --tail 20"
+```
+1. Para obter os logs via terminal do Semaphore :
+ ssh -i \~/.ssh/id\_terraform connect@10.0.39.31 "docker service ps semaphore\_semaphore-db && docker service logs semaphore\_semaphore --tail 20"
+
+################################################################################################################################################################################
+1. Para obter a senha inicial do Jenkins diretamente pelos logs via terminal:
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service logs jenkins-stack_jenkins 2>&1 | grep -A 2 'Please use the following password'"
 
 2. Para verificar a gravação dos dados nos diretórios do servidor NFS (10.0.39.30):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.30 "ls -la /srv/nfs/jenkins /srv/nfs/sonarqube"
 
 Dois Comandos para Acompanhar a Subida
 1. Logs de Inicialização do Jenkins (para ver o progresso e a senha admin):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service logs jenkins-stack_jenkins --tail 30"
 
 2. Status e Logs do SonarQube (para verificar o download e inicialização):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service ps sonarqube-stack_sonarqube && docker service logs sonarqube-stack_sonarqube --tail 30"
 
 Dois Comandos para Validação Final de Rede e Proxy
 Para testar a resposta do serviço e verificar o roteamento no Traefik, execute os dois comandos abaixo:
 1. Testar o cabeçalho HTTP da Web API do SonarQube:
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "curl -I http://10.0.39.31:9000"
 
 2. Confirmar a detecção do serviço nos logs do Traefik:
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service logs traefik_traefik --tail 20"
 
 Dois Comandos para Validação da Rede do Traefik e Jenkins
 Para confirmar que os endpoints do Jenkins e do Traefik também estão respondendo com HTTP 200 OK antes de cadastrarmos o pipeline, execute os dois comandos abaixo:
 1. Comando 1 (Validar a resposta HTTP do Traefik / Dashboard):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "curl -I http://10.0.39.31:8080/ping"
 
 1. Comando 2 (Validar a resposta HTTP do Jenkins):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "curl -I http://10.0.39.31:50000"
 
 Dois Comandos para Validação Final de todos os FQDNs
 Para confirmar que o Traefik está respondendo 200 OK para o Jenkins e para o Portainer no nível do serviço Swarm, execute os dois comandos abaixo:
 1. Verificar as labels no nível do serviço Swarm do Portainer:
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service inspect portainer_portainer --format '{{json .Spec.Labels}}'"
 
 2. Simular o roteamento FQDN do Jenkins sem porta:
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "curl -I -H 'Host: jenkins.nverse.local' http://10.0.39.31"
 
 
 Dois Comandos para Teste e Validação
 Execute os dois comandos abaixo no seu terminal:
 1. Comando 1 (Verificar a renderização do título HTML do Jenkins via Traefik):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "curl -s -L -H 'Host: jenkins.nverse.local' http://10.0.39.31 | grep -i '<title>'"
 
 2. Comando 2 (Verificar os últimos eventos do Traefik no Swarm):
-
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "docker service logs traefik_traefik --tail 15"
 
 Dois Comandos para Validação de Código HTTP via Traefik

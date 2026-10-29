@@ -117,6 +117,11 @@
         proto: udp
       loop: "{{ swarm_ports_udp }}"
 
+    - name: Permitir tráfego total da sub-rede interna no UFW
+      ufw:
+        rule: allow
+        src: "{{ swarm_network }}"
+
     - name: Ativar UFW
       ufw:
         state: enabled
