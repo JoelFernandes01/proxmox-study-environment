@@ -1,29 +1,58 @@
 ---
+- name: Preparar nós do cluster para montagem NFS
+  hosts: k8s_control_planes, k8s_workers
+  become: true
+  ignore_unreachable: true
+  tasks:
+    - name: Aguardar a porta 2049 do Servidor NFS (10.0.39.70) estar liberada
+      ansible.builtin.wait_for:
+        host: 10.0.39.70
+        port: 2049
+        timeout: 60
+        state: started
+
+    - name: Forçar atualização da tabela ARP antes da montagem
+      ansible.builtin.shell: "ip neigh flush all"
+      changed_when: false
+
+    - name: Instalar pacote nfs-common
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+
 - name: Instalar NFS Subdir External Provisioner via Helm
   hosts: k8s-control-plane-01
   become: true
   tasks:
-    - name: Garantir instalação do cliente nfs em todos os Workers
-      delegate_to: "{{ item }}"
-      apt:
-        name: nfs-common
-        state: present
-      loop: "{{ groups['k8s_workers'] }}"
-
-    - name: Adicionar repositório Helm do NFS Provisioner
+    - name: Adicionar repositorio Helm do NFS Provisioner
       become_user: connect
-      command: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+      environment:
+        KUBECONFIG: /home/connect/.kube/config
+      ansible.builtin.command: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+      register: helm_repo_add
+      changed_when: helm_repo_add.rc == 0
 
-    - name: Atualizar repositórios Helm
+    - name: Atualizar repositorios Helm
       become_user: connect
-      command: helm repo update
+      environment:
+        KUBECONFIG: /home/connect/.kube/config
+      ansible.builtin.command: helm repo update
+      register: helm_repo_update
+      changed_when: helm_repo_update.rc == 0
 
     - name: Deploy / Upgrade do NFS Provisioner no cluster
       become_user: connect
-      command: >
+      environment:
+        KUBECONFIG: /home/connect/.kube/config
+      ansible.builtin.command: >
         helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
         --namespace kube-system
         --set nfs.server=10.0.39.70
         --set nfs.path=/srv/nfs/k8s
         --set storageClass.name=nfs-client
         --set storageClass.defaultClass=true
+      register: helm_nfs_result
+      until: helm_nfs_result.rc == 0
+      retries: 5
+      delay: 15

@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:16.11.10-ce.0
+    restart: always
+    hostname: gitlab.nverse.local
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.nverse.local'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
+        prometheus_monitoring['enable'] = false
+    ports:
+      - "2222:22"
+    networks:
+      - traefik-public
+      - backend
+    volumes:
+      - gitlab-config-nfs:/etc/gitlab
+      - gitlab-logs-nfs:/var/log/gitlab
+      - gitlab-data-nfs:/var/opt/gitlab
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.gitlab.rule=Host(`gitlab.nverse.local`)"
+        - "traefik.http.routers.gitlab.entrypoints=web"
+        - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+        - "traefik.docker.network=traefik-public"
+
+volumes:
+  gitlab-config-nfs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.0.39.30,rw,nolock,soft,nfsvers=4
+      device: ":/srv/nfs/gitlab/config"
+
+  gitlab-logs-nfs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.0.39.30,rw,nolock,soft,nfsvers=4
+      device: ":/srv/nfs/gitlab/logs"
+
+  gitlab-data-nfs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=10.0.39.30,rw,nolock,soft,nfsvers=4
+      device: ":/srv/nfs/gitlab/data"
+
+networks:
+  traefik-public:
+    external: true
+  backend:
+    driver: overlay
+

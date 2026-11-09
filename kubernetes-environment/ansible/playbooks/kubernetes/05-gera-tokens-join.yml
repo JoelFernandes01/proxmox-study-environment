@@ -2,7 +2,7 @@
 - name: Gerar tokens e certificados no primeiro control-plane
   hosts: k8s-control-plane-01
   become: true
-  gather_facts: false
+  gather_facts: true
   tasks:
     - name: Gerar certificate-key para control-plane
       command: kubeadm init phase upload-certs --upload-certs

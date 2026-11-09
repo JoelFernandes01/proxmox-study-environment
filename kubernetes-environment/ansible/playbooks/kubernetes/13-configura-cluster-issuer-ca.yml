@@ -1,0 +1,66 @@
+---
+- name: 13 - Configura ClusterIssuer de CA Interna no Cert-Manager
+  hosts: k8s_control_plane
+  become: yes
+  vars:
+    cert_manager_namespace: "cert-manager"
+    issuer_name: "internal-ca-issuer"
+
+  tasks:
+    - name: Criar manifesto temporario do Self-Signed e CA Issuer
+      ansible.builtin.copy:
+        dest: /tmp/cluster-issuer-ca.yaml
+        content: |
+          ---
+          apiVersion: cert-manager.io/v1
+          kind: ClusterIssuer
+          metadata:
+            name: selfsigned-issuer
+          spec:
+            selfSigned: {}
+          ---
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata:
+            name: internal-root-ca
+            namespace: cert-manager
+          spec:
+            isCA: true
+            commonName: "Nverse Internal Root CA"
+            secretName: internal-root-ca-secret
+            privateKey:
+              algorithm: RSA
+              size: 2048
+            issuerRef:
+              name: selfsigned-issuer
+              kind: ClusterIssuer
+              group: cert-manager.io
+          ---
+          apiVersion: cert-manager.io/v1
+          kind: ClusterIssuer
+          metadata:
+            name: internal-ca-issuer
+          spec:
+            ca:
+              secretName: internal-root-ca-secret
+
+    - name: Aplicar ClusterIssuer e Root CA no Kubernetes
+      kubernetes.core.k8s:
+        state: present
+        src: /tmp/cluster-issuer-ca.yaml
+
+    - name: Remover arquivo manifesto temporario
+      ansible.builtin.file:
+        path: /tmp/cluster-issuer-ca.yaml
+        state: absent
+
+    - name: Validar status do ClusterIssuer interno
+      kubernetes.core.k8s_info:
+        api_version: cert-manager.io/v1
+        kind: ClusterIssuer
+        name: "{{ issuer_name }}"
+      register: issuer_status
+
+    - name: Exibir confirmacao de prontidao do Issuer
+      ansible.builtin.debug:
+        msg: "ClusterIssuer '{{ issuer_name }}' configurado com sucesso! Status: {{ issuer_status.resources[0].status.conditions[0].type | default('Ready') }}"

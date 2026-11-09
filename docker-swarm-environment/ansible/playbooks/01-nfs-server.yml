@@ -1,8 +1,8 @@
 ---
 # =========================================================================
-# Playbook 00 — Configuração do Servidor NFS no swm-nfs-01
+# Playbook 00 — Configuração do Servidor NFS no docker-nfs-01
 # =========================================================================
-- name: Configurar Servidor NFS no swm-nfs-01
+- name: Configurar Servidor NFS no docker-nfs-01
   hosts: nfs
   become: true
   gather_facts: true
@@ -87,6 +87,10 @@
         - /srv/nfs/semaphore
         - /srv/nfs/monitoring
         - /srv/nfs/glpi
+        - /srv/nfs/gitlab
+        - /srv/nfs/gitlab/config
+        - /srv/nfs/gitlab/logs
+        - /srv/nfs/gitlab/data
 
     - name: Configurar exportações no /etc/exports
       copy:
@@ -98,6 +102,7 @@
           /srv/nfs/semaphore  10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/monitoring 10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/glpi       10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/gitlab     10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
       notify: Reload NFS exports
 
     - name: Liberar porta do NFS no UFW

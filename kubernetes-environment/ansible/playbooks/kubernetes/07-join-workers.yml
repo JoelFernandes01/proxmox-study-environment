@@ -1,8 +1,27 @@
 ---
+- name: Obter token de join no primeiro control-plane
+  hosts: k8s-control-plane-01
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Gerar comando de join para os workers
+      command: kubeadm token create --print-join-command
+      register: join_worker_cmd_output
+
+    - name: Definir join_worker_cmd em memoria
+      set_fact:
+        join_worker_cmd: "{{ join_worker_cmd_output.stdout }}"
+
 - name: Adicionar workers ao cluster
   hosts: k8s_workers
   become: true
   gather_facts: true
+  serial: 1
   tasks:
+    - name: Limpar estado anterior do kubeadm (em caso de retry)
+      command: kubeadm reset -f
+      ignore_errors: true
+
     - name: Executar kubeadm join para workers
       command: "{{ hostvars['k8s-control-plane-01']['join_worker_cmd'] }}"
+      throttle: 1

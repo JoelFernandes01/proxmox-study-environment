@@ -1,7 +1,9 @@
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: test-nfs-pvc
+  namespace: default
 spec:
   accessModes:
     - ReadWriteMany
@@ -17,11 +19,11 @@ metadata:
 spec:
   containers:
     - name: app
-      image: busybox
+      image: busybox:latest
       command:
         - sh
         - -c
-        - "echo 'Teste de escrita no NFS em $(date)' > /mnt/nfs/teste.txt && sleep 3600"
+        - "echo 'Teste de escrita no NFS em $(date)' &gt;&gt; /mnt/nfs/teste.txt &amp;&amp; cat /mnt/nfs/teste.txt &amp;&amp; sleep 3600"
       volumeMounts:
         - mountPath: "/mnt/nfs"
           name: nfs-volume

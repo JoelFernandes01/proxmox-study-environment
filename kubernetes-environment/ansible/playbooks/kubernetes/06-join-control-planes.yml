@@ -1,15 +1,32 @@
 ---
+- name: Obter token e certificate-key no control-plane principal
+  hosts: k8s-control-plane-01
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Gerar certificate-key para control-plane
+      ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
+      register: cert_output
+
+    - name: Gerar join command básico
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: join_cmd_basic
+
+    - name: Definir comando de join do control plane em memória
+      ansible.builtin.set_fact:
+        join_control_plane_cmd: "{{ join_cmd_basic.stdout }} --control-plane --certificate-key {{ cert_output.stdout_lines[-1] }}"
+
 - name: Adicionar Control Planes secundarios ao cluster
   hosts: k8s_control_planes
   become: true
   gather_facts: true
   tasks:
     - name: Executar kubeadm join nos Control Planes secundarios
-      command: "{{ hostvars['k8s-control-plane-01']['join_control_plane_cmd'] }}"
+      ansible.builtin.command: "{{ hostvars['k8s-control-plane-01']['join_control_plane_cmd'] }}"
       when: inventory_hostname != 'k8s-control-plane-01'
 
     - name: Criar ~/.kube para o usuario connect
-      file:
+      ansible.builtin.file:
         path: /home/connect/.kube
         state: directory
         owner: connect
@@ -17,7 +34,7 @@
         mode: '0755'
 
     - name: Copiar kubeconfig para o usuario connect
-      copy:
+      ansible.builtin.copy:
         src: /etc/kubernetes/admin.conf
         dest: /home/connect/.kube/config
         remote_src: true

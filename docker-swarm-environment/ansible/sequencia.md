@@ -39,6 +39,8 @@ ssh -i \~/.ssh/id\_terraform connect@10.0.39.30 "systemctl is-active nfs-server"
 ssh -i ~/.ssh/id_terraform connect@10.0.39.30 "systemctl status nfs-kernel-server --no-pager"
 ssh -i ~/.ssh/id_terraform connect@10.0.39.31 "showmount -e 10.0.39.30"
 
+ssh -i \~/.ssh/id\_terraform connect@10.0.39.30 "sudo ls -la /srv/nfs/gitlab"
+
 ansible-playbook -i inventory/hosts.ini playbooks/02-install-docker.yml
 for ip in 31 32 33 35 36 37; do echo "=== IP 10.0.39.$ip ==="; ssh -i ~/.ssh/id_terraform connect@10.0.39.$ip "docker --version && systemctl is-active docker"; done
 ssh -i \~/.ssh/id\_terraform connect@10.0.39.31 "free -h | grep Swap && lsmod | grep -E 'overlay|br\_netfilter'"

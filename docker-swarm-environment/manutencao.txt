@@ -1,0 +1,17 @@
+# Comando para desativar o boot inicial das VM's do ambiente Docker
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in 9000 9001 9002 9410 9011 9012 9030; do qm set $id --onboot 0; done'
+
+# Comando para desativar o boot inicial das VM's do ambiente K8s
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in 9400 9401 9402 9403 9404 9405 9406 9407 9408; do qm set $id --onboot 0; done'
+
+# Comando para destruir as VM's
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in 10400 10401 10402 10403 10405 10406 10407 10408; do qm destroy ; done'
+
+# Comando para clonar as VM's
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 '
+for id in 9000 9001 9002 9010 9011 9012 9030; do
+  name=$(qm config $id | awk -F": " "/^name:/{print \$2}")
+  qm clone $id $((id+1000)) --full --storage storage-vms --name "${name}-clone"
+done'
+
+

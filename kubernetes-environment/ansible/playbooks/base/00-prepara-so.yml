@@ -3,15 +3,39 @@
   hosts: all
   become: true
   tasks:
+    - name: Garantir desativação do Firewall UFW
+      community.general.ufw:
+        state: disabled
+
+    - name: Limpar tabelas residuais do iptables
+      ansible.builtin.shell: |
+        iptables -F && iptables -X && iptables -t nat -F && iptables -t nat -X
+      changed_when: false
+
+    - name: Limpar cache ARP preventivo no boot da automação
+      ansible.builtin.shell: "ip neigh flush all"
+      changed_when: false
+
     - name: Atualizar cache de pacotes
       apt:
-        update_cache: yes
+        update_cache: true
         upgrade: dist
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Instalar pacotes uteis do sistema
+    - name: Instalar pacotes uteis e cliente NFS em todos os nós
       apt:
-        name: [git, curl, vim, python3, python3-pip, sudo, openssl, ca-certificates, fish]
+        name:
+          - git
+          - curl
+          - vim
+          - python3
+          - python3-pip
+          - sudo
+          - openssl
+          - ca-certificates
+          - fish
+          - nfs-common
+          - netcat-openbsd
         state: present
       when: ansible_facts['os_family'] == "Debian"
 
@@ -36,6 +60,7 @@
           10.0.39.61 k8s-worker-01.nverse.local k8s-worker-01
           10.0.39.62 k8s-worker-02.nverse.local k8s-worker-02
           10.0.39.63 k8s-worker-03.nverse.local k8s-worker-03
+          10.0.39.70 k8s-nfs-01.nverse.local k8s-nfs-01
         state: present
 
     - name: Configurar sudoers para o usuario connect sem senha

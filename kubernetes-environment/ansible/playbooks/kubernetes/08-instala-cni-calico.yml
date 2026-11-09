@@ -3,9 +3,17 @@
   hosts: k8s-control-plane-01
   become: true
   tasks:
+    - name: Aguardar API Server do Kubernetes estar pronto
+      become_user: connect
+      command: kubectl get nodes
+      register: api_check
+      until: api_check.rc == 0
+      retries: 12
+      delay: 10
+
     - name: Instalar CNI Calico
       become_user: connect
-      command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+      command: kubectl apply --validate=false -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
 
     - name: Baixar script oficial do Helm
       get_url:
@@ -16,6 +24,6 @@
     - name: Executar instalador do Helm
       command: /tmp/get_helm.sh
 
-    - name: Instalar Metrics Server no cluster (para uso do kubectl top)
+    - name: Instalar Metrics Server no cluster
       become_user: connect
-      command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      command: kubectl apply --validate=false -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

@@ -1,34 +1,56 @@
 ---
 - name: Configurar Servidor de Arquivos NFS
-  hosts: k8s_nfs
+  hosts: k8s-nfs-01
   become: true
   tasks:
-    - name: Atualizar cache de pacotes e instalar o servidor NFS
-      apt:
+    - name: Desativar UFW no servidor NFS
+      community.general.ufw:
+        state: disabled
+
+    - name: Definir politicas padrao do iptables para ACCEPT e limpar regras
+      ansible.builtin.shell: |
+        iptables -P INPUT ACCEPT
+        iptables -P FORWARD ACCEPT
+        iptables -P OUTPUT ACCEPT
+        iptables -F && iptables -X && iptables -t nat -F && iptables -t nat -X
+      changed_when: false
+
+    - name: Instalar o servidor NFS, cliente e rpcbind
+      ansible.builtin.apt:
         name:
           - nfs-kernel-server
           - nfs-common
+          - rpcbind
         state: present
         update_cache: true
 
-    - name: Criar diretório de exportação para o Kubernetes
-      file:
+    - name: Criar diretorio de exportacao para o Kubernetes
+      ansible.builtin.file:
         path: /srv/nfs/k8s
         state: directory
         mode: '0777'
 
     - name: Configurar o arquivo /etc/exports
-      lineinfile:
-        path: /etc/exports
-        line: '/srv/nfs/k8s 10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)'
-        regexp: '^/srv/nfs/k8s'
-        state: present
+      ansible.builtin.copy:
+        dest: /etc/exports
+        content: |
+          /srv/nfs/k8s 10.0.39.0/24(rw,sync,no_subtree_check,no_root_squash)
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Garantir que o rpcbind esta ativo e habilitado
+      ansible.builtin.systemd:
+        name: rpcbind
+        state: restarted
+        enabled: true
+
+    - name: Garantir que o nfs-kernel-server esta ativo e habilitado
+      ansible.builtin.systemd:
+        name: nfs-kernel-server
+        state: restarted
+        enabled: true
 
     - name: Exportar compartilhamentos NFS
-      command: exportfs -rav
-
-    - name: Habilitar e iniciar o serviço NFS (nfs-server)
-      systemd:
-        name: nfs-server
-        enabled: true
-        state: restarted
+      ansible.builtin.command: exportfs -ra
+      changed_when: false

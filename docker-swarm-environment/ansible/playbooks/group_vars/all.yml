@@ -18,13 +18,14 @@ timezone: "America/Sao_Paulo"
 
 # --- Firewall (portas do Swarm) ---
 swarm_ports_tcp:
-  - 22
-  - 2377
-  - 7946
-  - 80
-  - 443
-  - 2049
-  - 111
+  - 22      # SSH Host
+  - 2377    # Swarm Cluster
+  - 7946    # Swarm Communication
+  - 80      # HTTP / Traefik
+  - 443     # HTTPS / Traefik
+  - 2049    # NFS Protocol
+  - 111     # RPC / Portmapper
+  - 2222    # GitLab SSH
 
 swarm_ports_udp:
   - 7946
