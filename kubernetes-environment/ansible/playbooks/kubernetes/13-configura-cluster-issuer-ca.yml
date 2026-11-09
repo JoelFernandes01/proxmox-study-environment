@@ -1,6 +1,6 @@
 ---
 - name: 13 - Configura ClusterIssuer de CA Interna no Cert-Manager
-  hosts: k8s_control_plane
+  hosts: control_planes
   become: yes
   vars:
     cert_manager_namespace: "cert-manager"
