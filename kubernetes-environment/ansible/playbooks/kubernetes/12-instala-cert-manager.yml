@@ -12,7 +12,7 @@
         name: jetstack
         repo_url: "{{ helm_repo_url }}"
 
-    - name: Implantar Chart Helm do Cert-Manager
+    - name: Implantar Chart Helm do Cert-Manager com CRDs habilitadas
       kubernetes.core.helm:
         name: cert-manager
         chart_ref: jetstack/cert-manager
@@ -21,5 +21,6 @@
         state: present
         wait: yes
         values:
+          installCRDs: true
           crds:
             enabled: true
