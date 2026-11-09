@@ -1,6 +1,6 @@
 ---
 - name: 11 - Instala Traefik Ingress Controller via Helm
-  hosts: k8s_control_plane
+  hosts: k8s_control_planes
   become: yes
   vars:
     traefik_namespace: "traefik"
