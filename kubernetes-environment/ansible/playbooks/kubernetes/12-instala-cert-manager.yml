@@ -1,6 +1,6 @@
 ---
 - name: 12 - Instala Cert-Manager via Helm
-  hosts: control_planes
+  hosts: k8s_control_plane
   become: yes
   vars:
     cert_manager_namespace: "cert-manager"
