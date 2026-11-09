@@ -1,20 +1,38 @@
 ---
 - name: 11 - Instala Traefik Ingress Controller via Helm
-  yosts: k8s-control-plane-01
+  hosts: k8s_control_plane
   become: yes
+  vars:
+    traefik_namespace: "traefik"
+    helm_repo_url: "https://helm.traefik.io/traefik"
+
   tasks:
-    - name: Adiciona o repositório Helm do Traefik
+    - name: Adicionar repositorio Helm do Traefik
       kubernetes.core.helm_repository:
         name: traefik
-        repo_url: "https://helm.traefik.io/traefik"
+        repo_url: "{{ helm_repo_url }}"
 
-    - name: Instala o Chart do Traefik no namespace traefik
+    - name: Implantar Chart Helm do Traefik
       kubernetes.core.helm:
         name: traefik
         chart_ref: traefik/traefik
-        release_namespace: traefik
+        release_namespace: "{{ traefik_namespace }}"
         create_namespace: true
+        state: present
+        wait: yes
         values:
           ingressRoute:
             dashboard:
               enabled: true
+
+    - name: Obter informacoes do servico Traefik
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: traefik
+        namespace: "{{ traefik_namespace }}"
+      register: traefik_service
+
+    - name: Exibir IP do Traefik alocado pelo MetalLB
+      ansible.builtin.debug:
+        msg: "Traefik Ingress Controller ativo no IP da rede: {{ traefik_service.resources[0].status.loadBalancer.ingress[0].ip | default('Pendente') }}"
