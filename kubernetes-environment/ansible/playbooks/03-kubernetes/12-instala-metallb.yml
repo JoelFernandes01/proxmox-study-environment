@@ -31,13 +31,13 @@
         --kubeconfig={{ kubeconfig_path }}
       changed_when: false
 
-    - name: Criar configuracao de IOAddressPool e L2Advertisement
+    - name: Criar configuracao de IPAddressPool e L2Advertisement
       ansible.builtin.copy:
         dest: /tmp/metallb-config.yaml
         content: |
           ---
           apiVersion: metallb.io/v1beta1
-          kind: IOAddressPool
+          kind: IPAddressPool
           metadata:
             name: first-pool
             namespace: metallb-system
@@ -57,7 +57,7 @@
     - name: Aplicar configuracao do MetalLB no Kubernetes (com retry)
       ansible.builtin.command: >
         kubectl apply -f /tmp/metallb-config.yaml
-        --kubeconfig={{ kubectonfig_path }}
+        --kubeconfig={{ kubeconfig_path }}
         --validate=false
       register: metallb_config_apply
       until: metallb_config_apply.rc == 0
