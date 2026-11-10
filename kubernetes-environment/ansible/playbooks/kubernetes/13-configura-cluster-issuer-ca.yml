@@ -49,6 +49,7 @@
       ansible.builtin.command: >
         kubectl apply -f /tmp/cluster-issuer-ca.yaml
         --kubeconfig={{ kubeconfig_path }}
+        --validate=false
 
     - name: Remover arquivo manifesto temporario
       ansible.builtin.file:
