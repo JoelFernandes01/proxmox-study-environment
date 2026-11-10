@@ -16,3 +16,5 @@
 - import_playbook: playbooks/kubernetes/09-instala-nfs-provisioner.yml
 - import_playbook: playbooks/kubernetes/10-instala-metrics-server.yml
 - import_playbook: playbooks/management/12-verifica-cluster.yml
+- import_playbook: playbooks/kubernetes/13-configura-cluster-issuer-ca.yml
+- import_playbook: playbooks/kubernetes/14-deploy-aplicacao-teste-https.yml
