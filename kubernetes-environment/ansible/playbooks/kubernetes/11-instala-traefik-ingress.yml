@@ -27,15 +27,14 @@
             dashboard:
               enabled: true
 
-    - name: Obter informacoes do servico Traefik
-      kubernetes.core.k8s_info:
-        kubeconfig: "{{ kubeconfig_path }}"
-        api_version: v1
-        kind: Service
-        name: traefik
-        namespace: "{{ traefik_namespace }}"
-      register: traefik_service
+    - name: Obter IP do servico Traefik via kubectl
+      ansible.builtin.command: >
+        kubectl get svc traefik -n {{ traefik_namespace }}
+        --kubeconfig={{ kubeconfig_path }}
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      register: traefik_ip
+      changed_when: false
 
     - name: Exibir IP do Traefik alocado pelo MetalLB
       ansible.builtin.debug:
-        msg: "Traefik Ingress Controller ativo no IP da rede: {{ traefik_service.resources[0].status.loadBalancer.ingress[0].ip | default('Pendente') }}"
+        msg: "Traefik Ingress Controller ativo no IP da rede: {{ traefik_ip.stdout | default('Pendente') }}"
