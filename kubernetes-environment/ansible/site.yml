@@ -1,20 +1,22 @@
 ---
 # =========================================================================
 # Playbook Mestre — Esteira Completa de Instalação do K8s HA (nverse.local)
-# #========================================================================
+# =========================================================================
 
-- import_playbook: playbooks/base/00-prepara-so.yml
-- import_playbook: playbooks/storage/01-configura-nfs-server.yml
-- import_playbook: playbooks/kubernetes/01-prepara-k8s-prereqs.yml
-- import_playbook: playbooks/keepalived/02-configura-keepalived.yml
-- import_playbook: playbooks/loadbalancer/03-configura-haproxy.yml
-- import_playbook: playbooks/kubernetes/04-init-control-plane-01.yml
-- import_playbook: playbooks/kubernetes/05-gera-tokens-join.yml
-- import_playbook: playbooks/kubernetes/06-join-control-planes.yml
-- import_playbook: playbooks/kubernetes/07-join-workers.yml
-- import_playbook: playbooks/kubernetes/08-instala-cni-calico.yml
-- import_playbook: playbooks/kubernetes/09-instala-nfs-provisioner.yml
-- import_playbook: playbooks/kubernetes/10-instala-metrics-server.yml
-- import_playbook: playbooks/management/12-verifica-cluster.yml
-- import_playbook: playbooks/kubernetes/13-configura-cluster-issuer-ca.yml
-- import_playbook: playbooks/kubernetes/14-deploy-aplicacao-teste-https.yml
+- import_playbook: playbooks/00-base/00-prepara-so.yml
+- import_playbook: playbooks/01-storage/01-configura-nfs-server.yml
+- import_playbook: playbooks/02-loadbalancer/02-configura-keepalived.yml
+- import_playbook: playbooks/02-loadbalancer/03-configura-haproxy.yml
+- import_playbook: playbooks/03-kubernetes/04-prepara-k8s-prereqs.yml
+- import_playbook: playbooks/03-kubernetes/05-init-control-plane-01.yml
+- import_playbook: playbooks/03-kubernetes/06-gera-tokens-join.yml
+- import_playbook: playbooks/03-kubernetes/07-join-control-planes.yml
+- import_playbook: playbooks/03-kubernetes/08-join-workers.yml
+- import_playbook: playbooks/03-kubernetes/09-instala-cni-calico.yml
+- import_playbook: playbooks/03-kubernetes/10-instala-nfs-provisioner.yml
+- import_playbook: playbooks/03-kubernetes/11-instala-metrics-server.yml
+- import_playbook: playbooks/03-kubernetes/12-instala-metallb.yml
+- import_playbook: playbooks/03-kubernetes/13-instala-traefik-ingress.yml
+- import_playbook: playbooks/03-kubernetes/14-instala-cert-manager.yml
+- import_playbook: playbooks/03-kubernetes/15-configura-cluster-issuer-ca.yml
+- import_playbook: playbooks/03-kubernetes/16-deploy-aplicacao-teste-https.yml
