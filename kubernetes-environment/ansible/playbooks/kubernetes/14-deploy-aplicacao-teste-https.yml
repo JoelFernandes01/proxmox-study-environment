@@ -1,0 +1,95 @@
+---
+- name: 14 - Deploy Aplicacao Teste HTTPS (whoami)
+  hosts: k8s-control-plane-01
+  become: yes
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    domain_name: "whoami.nverse.local"
+
+  tasks:
+    - name: Criar manifesto da aplicacao de teste com Ingress TLS
+      ansible.builtin.copy:
+        dest: /tmp/whoami-ingress.yaml
+        content: |
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: whoami-test
+            namespace: default
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: whoami-test
+            template:
+              metadata:
+                labels:
+                  app: whoami-test
+              spec:
+                containers:
+                  - name: whoami
+                    image: traefik/whoami:v1.10.1
+                    ports:
+                      - containerPort: 80
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: whoami-service
+            namespace: default
+          spec:
+            ports:
+              - port: 80
+                targetPort: 80
+            selector:
+              app: whoami-test
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: whoami-ingress
+            namespace: default
+            annotations:
+              cert-manager.io/cluster-issuer: internal-ca-issuer
+          spec:
+            ingressClassName: traefik
+            tls:
+              - hosts:
+                  - {{ domain_name }}
+                secretName: whoami-nverse-tls
+            rules:
+              - host: {{ domain_name }}
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: whoami-service
+                          port:
+                            number: 80
+
+    - name: Aplicar manifesto no Kubernetes via kubectl
+      ansible.builtin.command: >
+        kubectl apply -f /tmp/whoami-ingress.yaml
+        --kubeconfig={{ kubeconfig_path }}
+
+    - name: Remover arquivo manifesto temporario
+      ansible.builtin.file:
+        path: /tmp/whoami-ingress.yaml
+        state: absent
+
+    - name: Aguardar emissao do certificado TLS pelo Cert-Manager
+      ansible.builtin.command: >
+        kubectl get certificate whoami-nverse-tls
+        --kubeconfig={{ kubeconfig_path }}
+      register: cert_status
+      until: "'True' in cert_status.stdout"
+      retries: 10
+      delay: 3
+      changed_when: false
+
+    - name: Exibir confirmacao de prontidao do Certificado
+      ansible.builtin.debug:
+        msg: "{{ cert_status.stdout }}"
