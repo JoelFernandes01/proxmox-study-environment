@@ -4,12 +4,13 @@
   become: yes
   vars:
     kubeconfig_path: "/etc/kubernetes/admin.conf"
+    control_plane_01_ip: "10.0.39.43"
     calico_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
 
   tasks:
-    - name: Aguardar API Server estar operacional
+    - name: Aguardar API Server do CP-01 estar operacional
       ansible.builtin.command: >
-        kubectl get nodes --kubeconfig={{ kubeconfig_path }}
+        kubectl get nodes --kubeconfig={{ kubeconfig_path }} --server=https://{{ control_plane_01_ip }}:6443
       register: apiserver_check
       until: apiserver_check.rc == 0
       retries: 10
@@ -22,9 +23,9 @@
         dest: /tmp/calico.yaml
         mode: '0644'
 
-    - name: Aplicar manifesto do Calico CNI
+    - name: Aplicar manifesto do Calico CNI (Conectando diretamente no IP do CP-01)
       ansible.builtin.command: >
-        kubectl apply --kubeconfig={{ kubeconfig_path }} --validate=false -f /tmp/calico.yaml
+        kubectl apply --kubeconfig={{ kubeconfig_path }} --server=https://{{ control_plane_01_ip }}:6443 --validate=false -f /tmp/calico.yaml
       register: calico_install
       until: calico_install.rc == 0
       retries: 5
