@@ -1,10 +1,10 @@
 ---
-- name: 14 - Deploy Aplicacao Teste HTTPS (whoami)
+- name: 16 - Deploy Aplicacao Teste HTTPS (whoami)
   hosts: k8s-control-plane-01
   become: yes
   vars:
     kubeconfig_path: "/etc/kubernetes/admin.conf"
-    domain_name: "whoami.nverse.local"
+    domain_name: "whoami-k8s.nverse.local"
 
   tasks:
     - name: Criar manifesto da aplicacao de teste com Ingress TLS
@@ -57,7 +57,7 @@
             tls:
               - hosts:
                   - {{ domain_name }}
-                secretName: whoami-nverse-tls
+                secretName: whoami-k8s-nverse-tls
             rules:
               - host: {{ domain_name }}
                 http:
@@ -82,7 +82,7 @@
 
     - name: Aguardar emissao do certificado TLS pelo Cert-Manager
       ansible.builtin.command: >
-        kubectl get certificate whoami-nverse-tls
+        kubectl get certificate whoami-k8s-nverse-tls
         --kubeconfig={{ kubeconfig_path }}
       register: cert_status
       until: "'True' in cert_status.stdout"
