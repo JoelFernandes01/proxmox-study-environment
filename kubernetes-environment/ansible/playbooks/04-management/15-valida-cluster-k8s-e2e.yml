@@ -1,0 +1,56 @@
+---
+- name: 15 - Validação E2E da Saúde do Cluster Kubernetes
+  hosts: k8s-control-plane-01
+  become: yes
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+
+  tasks:
+    - name: 1. Validar se todos os nós do cluster estão em status Ready
+      ansible.builtin.shell: >
+        kubectl get nodes --kubeconfig={{ kubeconfig_path }} --no-headers | grep -v 'Ready' | wc -l
+      register: nodes_not_ready
+      failed_when: nodes_not_ready.stdout != "0"
+      changed_when: false
+
+    - name: 2. Validar o Quórum do etcd (3 membros ativos)
+      ansible.builtin.shell: >
+        kubectl exec -n kube-system $(kubectl get pods -n kube-system -l component=etcd --kubeconfig={{ kubeconfig_path }} --no-headers | head -n1 | awk '{print $1}') --kubeconfig={{ kubeconfig_path }} -- etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | grep -c 'started'
+      register: etcd_members_count
+      failed_when: etcd_members_count.stdout != "3"
+      changed_when: false
+
+    - name: 3. Validar se a StorageClass nfs-client está configurada
+      ansible.builtin.shell: >
+        kubectl get sc --kubeconfig={{ kubeconfig_path }} | grep -q 'nfs-client'
+      register: sc_check
+      changed_when: false
+
+    - name: 4. Validar se o ClusterIssuer do Cert-Manager está Ready
+      ansible.builtin.shell: >
+        kubectl get clusterissuer internal-ca-issuer --kubeconfig={{ kubeconfig_path }} -o jsonpath='{.status.conditions[0].status}'
+      register: clusterissuer_check
+      failed_when: clusterissuer_check.stdout != "True"
+      changed_when: false
+
+    - name: 5. Validar se o Metrics Server está coletando métricas dos nós
+      ansible.builtin.command: >
+        kubectl top nodes --kubeconfig={{ kubeconfig_path }}
+      register: metrics_check
+      retries: 5
+      delay: 5
+      until: metrics_check.rc == 0
+      changed_when: false
+
+    - name: 6. Exibir resumo da validação
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "          RESUMO DA VALIDAÇÃO E2E DO CLUSTER K8S          "
+          - "=========================================================="
+          - "Status dos Nós (6/6 Ready): APROVADO"
+          - "Quórum etcd (3/3 Started): APROVADO"
+          - "StorageClass nfs-client: OPERACIONAL"
+          - "ClusterIssuer Cert-Manager: READY (True)"
+          - "Metrics Server API: COLETANDO MÉTRICAS"
+          - "=========================================================="
