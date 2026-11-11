@@ -1,5 +1,5 @@
 ---
-- name: 15 - Validação E2E da Saúde do Cluster Kubernetes
+- name: 16 - Validação E2E da Saúde do Cluster Kubernetes
   hosts: k8s-control-plane-01
   become: yes
   vars:
@@ -8,15 +8,15 @@
   tasks:
     - name: 1. Validar se todos os nós do cluster estão em status Ready
       ansible.builtin.shell: >
-        kubectl --kubeconfig={{ kubeconfig_path }} get nodes --no-headers | grep -v 'Ready' | wc -l
+        kubectl get nodes --kubeconfig={{ kubeconfig_path }} --no-headers | grep -v 'Ready' | wc -l
       register: nodes_not_ready
       failed_when: nodes_not_ready.stdout != "0"
       changed_when: false
 
     - name: 2. Validar o Quórum do etcd (3 membros ativos)
       ansible.builtin.shell: >
-        ETCD_POD=$(kubectl --kubeconfig={{ kubeconfig_path }} get pods -n kube-system -l component=etcd --no-headers -o jsonpath='{.items[0].metadata.name}') && \
-        kubectl --kubeconfig={{ kubeconfig_path }} exec -n kube-system $ETCD_POD -c etcd -- etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | grep -c 'started'
+        ETCD_CID=$(crictl ps --name etcd --state Running -q | head -n 1) && \
+        crictl exec $ETCD_CID etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | grep -c 'started'
       register: etcd_members_count
       until: etcd_members_count.stdout == "3"
       retries: 6
@@ -25,22 +25,22 @@
 
     - name: 3. Validar se a StorageClass nfs-client está configurada
       ansible.builtin.shell: >
-        kubectl --kubeconfig={{ kubeconfig_path }} get sc | grep -q 'nfs-client'
+        kubectl get sc --kubeconfig={{ kubeconfig_path }} | grep -q 'nfs-client'
       register: sc_check
       changed_when: false
 
     - name: 4. Validar se o ClusterIssuer do Cert-Manager está Ready
       ansible.builtin.shell: >
-        kubectl --kubeconfig={{ kubeconfig_path }} get clusterissuer internal-ca-issuer -o jsonpath='{.status.conditions[0].status}'
+        kubectl get clusterissuer internal-ca-issuer --kubeconfig={{ kubeconfig_path }} -o jsonpath='{.status.conditions[0].status}'
       register: clusterissuer_check
       failed_when: clusterissuer_check.stdout != "True"
       changed_when: false
 
     - name: 5. Validar se o Metrics Server está coletando métricas dos nós
       ansible.builtin.command: >
-        kubectl --kubeconfig={{ kubeconfig_path }} top nodes
+        kubectl top nodes --kubeconfig={{ kubeconfig_path }}
       register: metrics_check
-      retries: 6
+      retries: 5
       delay: 5
       until: metrics_check.rc == 0
       changed_when: false
