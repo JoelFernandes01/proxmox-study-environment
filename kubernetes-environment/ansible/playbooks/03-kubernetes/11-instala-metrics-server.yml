@@ -3,7 +3,7 @@
   hosts: k8s-control-plane-01
   become: yes
   vars:
-    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
     control_plane_01_ip: "10.0.39.43"
     metrics_server_url: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.1/components.yaml"
 

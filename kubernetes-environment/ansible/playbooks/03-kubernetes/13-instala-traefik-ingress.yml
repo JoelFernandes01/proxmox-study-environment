@@ -5,7 +5,7 @@
   vars:
     traefik_namespace: "traefik"
     helm_repo_url: "https://helm.traefik.io/traefik"
-    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
     dashboard_domain: "traefik-k8s.nverse.local"
 
   tasks:
