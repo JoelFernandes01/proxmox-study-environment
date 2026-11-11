@@ -1,34 +1,30 @@
 ---
-- name: Instalar e Configurar Metrics Server
+- name: 11 - Instalar e Configurar Metrics Server
   hosts: k8s-control-plane-01
-  become: true
+  become: yes
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    control_plane_01_ip: "10.0.39.43"
+    metrics_server_url: "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.1/components.yaml"
+
   tasks:
-    - name: Aplicar manifesto do Metrics Server
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
-      ansible.builtin.command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    - name: Aplicar manifesto do Metrics Server (Conectando diretamente no IP do CP-01)
+      ansible.builtin.command: >
+        kubectl apply --kubeconfig={{ kubeconfig_path }} --server=https://{{ control_plane_01_ip }}:6443 --validate=false -f {{ metrics_server_url }}
       register: metrics_apply
       until: metrics_apply.rc == 0
       retries: 5
-      delay: 10
+      delay: 5
 
     - name: Aplicar patch de TLS inseguro para compatibilidade com Kubeadm
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
       ansible.builtin.command: >
-        kubectl patch deployment metrics-server -n kube-system --type='json'
-        -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
-      register: metrics_patch
-      changed_when: metrics_patch.rc == 0
-      ignore_errors: true
+        kubectl patch deployment metrics-server -n kube-system --kubeconfig={{ kubeconfig_path }} --server=https://{{ control_plane_01_ip }}:6443 --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+      register: patch_output
+      until: patch_output.rc == 0
+      retries: 5
+      delay: 5
 
     - name: Aguardar a conclusao do rollout do Metrics Server
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
-      ansible.builtin.command: kubectl rollout status deployment metrics-server -n kube-system --timeout=60s
-      register: metrics_rollout
+      ansible.builtin.command: >
+        kubectl rollout status deployment/metrics-server -n kube-system --kubeconfig={{ kubeconfig_path }} --server=https://{{ control_plane_01_ip }}:6443 --timeout=180s
       changed_when: false
-      ignore_errors: true
