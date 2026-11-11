@@ -1,6 +1,6 @@
 ---
 - name: 04 - Prepara Prerequisitos do Kubernetes em Todos os Nos
-  hosts: k8s_all
+  hosts: k8s_control_planes:k8s_workers
   become: yes
   vars:
     crictl_version: "v1.30.0"
