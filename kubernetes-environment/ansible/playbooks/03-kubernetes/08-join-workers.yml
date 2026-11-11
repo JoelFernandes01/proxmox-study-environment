@@ -12,12 +12,23 @@
       ansible.builtin.set_fact:
         join_worker_cmd: "{{ join_worker_cmd_output.stdout }}"
 
-- name: Adicionar workers ao cluster
+- name: 08 - Adicionar Workers ao cluster com limpeza previa
   hosts: k8s_workers
   become: true
   gather_facts: true
+  serial: 1
   tasks:
+    - name: Limpar estado anterior do Kubeadm e CNI antes do join
+      ansible.builtin.shell: |
+        kubeadm reset -f || true
+        systemctl stop kubelet || true
+        crictl rm -f $(crictl ps -a -q) 2>/dev/null || true
+        rm -rf /etc/kubernetes/manifests/*
+        rm -rf /var/lib/kubelet/*
+        rm -rf /etc/cni/net.d/*
+        iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+      changed_when: false
+
     - name: Executar kubeadm join para workers
       ansible.builtin.command: "{{ hostvars['k8s-control-plane-01']['join_worker_cmd'] }}"
-      args:
-        creates: /etc/kubernetes/kubelet.conf
+      throttle: 1

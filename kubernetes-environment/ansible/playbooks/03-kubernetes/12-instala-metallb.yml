@@ -5,31 +5,30 @@
   vars:
     kubeconfig_path: "/etc/kubernetes/admin.conf"
     metallb_namespace: "metallb-system"
+    helm_repo_url: "https://metallb.github.io/metallb"
 
   tasks:
     - name: Adicionar repositorio Helm do MetalLB
       kubernetes.core.helm_repository:
         name: metallb
-        repo_url: "https://metallb.github.io/metallb"
+        repo_url: "{{ helm_repo_url }}"
 
     - name: Implantar Chart Helm do MetalLB
       kubernetes.core.helm:
         name: metallb
         chart_ref: metallb/metallb
+        chart_version: "0.13.12"
+        values:
+          speaker:
+            frr:
+              enabled: false
+          frr:
+            enabled: false
         release_namespace: "{{ metallb_namespace }}"
         create_namespace: true
         state: present
         wait: yes
         kubeconfig: "{{ kubeconfig_path }}"
-
-    - name: Aguardar pods do MetalLB ficarem Prontos (Ready)
-      ansible.builtin.command: >
-        kubectl wait --namespace {{ metallb_namespace }}
-        --for=condition=ready pod
-        --selector=app.kubernetes.io/component=controller
-        --timeout=120s
-        --kubeconfig={{ kubeconfig_path }}
-      changed_when: false
 
     - name: Criar configuracao de IPAddressPool e L2Advertisement
       ansible.builtin.copy:
@@ -54,15 +53,11 @@
             ipAddressPools:
               - first-pool
 
-    - name: Aplicar configuracao do MetalLB no Kubernetes (com retry)
+    - name: Aplicar configuracao do MetalLB no Kubernetes
       ansible.builtin.command: >
         kubectl apply -f /tmp/metallb-config.yaml
         --kubeconfig={{ kubeconfig_path }}
         --validate=false
-      register: metallb_config_apply
-      until: metallb_config_apply.rc == 0
-      retries: 10
-      delay: 5
 
     - name: Remover manifesto temporario do MetalLB
       ansible.builtin.file:

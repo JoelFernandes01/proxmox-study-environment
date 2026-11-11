@@ -15,12 +15,9 @@
 
     - name: 2. Validar o Quórum do etcd (3 membros ativos)
       ansible.builtin.shell: >
-        ETCD_CID=$(crictl ps --name etcd --state Running -q | head -n 1) && \
-        crictl exec $ETCD_CID etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | grep -c 'started'
+        kubectl exec -n kube-system $(kubectl get pods -n kube-system -l component=etcd --kubeconfig={{ kubeconfig_path }} --no-headers | head -n1 | awk '{print $1}') --kubeconfig={{ kubeconfig_path }} -- etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key member list | grep -c 'started'
       register: etcd_members_count
-      until: etcd_members_count.stdout == "3"
-      retries: 6
-      delay: 5
+      failed_when: etcd_members_count.stdout != "3"
       changed_when: false
 
     - name: 3. Validar se a StorageClass nfs-client está configurada
