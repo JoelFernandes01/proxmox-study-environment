@@ -1,11 +1,11 @@
 ---
 - name: 15 - Configura ClusterIssuer de CA Interna no Cert-Manager
   hosts: k8s-control-plane-01
-  become: yes
+  become: true
   vars:
     cert_manager_namespace: "cert-manager"
     issuer_name: "internal-ca-issuer"
-    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
     - name: Criar manifesto temporario do Self-Signed e CA Issuer

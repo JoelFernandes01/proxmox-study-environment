@@ -52,7 +52,7 @@
 
     - name: Copiar kubeconfig para o usuario connect
       ansible.builtin.copy:
-        src: /etc/kubernetes/admin-local.conf
+        src: /etc/kubernetes/admin.conf
         dest: "/home/{{ ansible_user_name }}/.kube/config"
         remote_src: true
         owner: "{{ ansible_user_name }}"

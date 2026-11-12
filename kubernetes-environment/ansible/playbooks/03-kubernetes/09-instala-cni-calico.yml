@@ -3,7 +3,7 @@
   hosts: k8s-control-plane-01
   become: yes
   vars:
-    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
     control_plane_01_ip: "10.0.39.43"
     calico_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
 

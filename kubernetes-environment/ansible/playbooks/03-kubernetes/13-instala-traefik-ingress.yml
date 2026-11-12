@@ -1,11 +1,11 @@
 ---
 - name: 13 - Instala Traefik Ingress Controller via Helm
   hosts: k8s-control-plane-01
-  become: yes
+  become: true
   vars:
     traefik_namespace: "traefik"
     helm_repo_url: "https://helm.traefik.io/traefik"
-    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
     dashboard_domain: "traefik-k8s.nverse.local"
 
   tasks:

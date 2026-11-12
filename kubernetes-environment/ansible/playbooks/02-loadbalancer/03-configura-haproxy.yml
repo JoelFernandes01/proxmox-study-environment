@@ -1,15 +1,23 @@
 ---
-- name: Configurar HAProxy para Balanceamento do API Server (:6443)
+- name: 03 - Configura HAProxy para API Server do Kubernetes (TCP Passthrough L4)
   hosts: k8s_haproxy
-  become: true
+  become: yes
   tasks:
+    - name: Habilitar ip_nonlocal_bind no sysctl
+      ansible.builtin.sysctl:
+        name: net.ipv4.ip_nonlocal_bind
+        value: '1'
+        state: present
+        reload: yes
+
     - name: Instalar HAProxy
-      apt:
+      ansible.builtin.apt:
         name: haproxy
         state: present
+        update_cache: yes
 
-    - name: Configurar haproxy.cfg
-      copy:
+    - name: Configurar /etc/haproxy/haproxy.cfg
+      ansible.builtin.copy:
         dest: /etc/haproxy/haproxy.cfg
         content: |
           global
@@ -25,12 +33,12 @@
               mode    tcp
               option  tcplog
               option  dontlognull
-              timeout connect 5000ms
-              timeout client  50000ms
-              timeout server  50000ms
+              timeout connect 5s
+              timeout client  50s
+              timeout server  50s
 
           frontend k8s-api-frontend
-              bind *:6443
+              bind 10.0.39.50:6443
               mode tcp
               option tcplog
               default_backend k8s-api-backend
@@ -39,13 +47,18 @@
               mode tcp
               option tcp-check
               balance roundrobin
-              server k8s-control-plane-01 10.0.39.43:6443 check fall 3 rise 2
-              server k8s-control-plane-02 10.0.39.44:6443 check fall 3 rise 2
-              server k8s-control-plane-03 10.0.39.45:6443 check fall 3 rise 2
+              default-server inter 3s fall 2 rise 2
+              server k8s-control-plane-01 10.0.39.43:6443 check
+              server k8s-control-plane-02 10.0.39.44:6443 check
+              server k8s-control-plane-03 10.0.39.45:6443 check
+        owner: root
+        group: root
         mode: '0644'
+      notify: Restart HAProxy
 
-    - name: Reiniciar e habilitar HAProxy
-      systemd:
+  handlers:
+    - name: Restart HAProxy
+      ansible.builtin.systemd:
         name: haproxy
         state: restarted
         enabled: yes

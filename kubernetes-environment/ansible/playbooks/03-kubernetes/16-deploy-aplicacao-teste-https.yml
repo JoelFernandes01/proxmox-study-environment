@@ -1,7 +1,7 @@
 ---
 - name: 16 - Deploy Aplicacao Teste HTTPS (whoami)
   hosts: k8s-control-plane-01
-  become: yes
+  become: true
   vars:
     kubeconfig_path: "/etc/kubernetes/admin.conf"
     domain_name: "whoami-k8s.nverse.local"

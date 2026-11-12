@@ -1,28 +1,56 @@
 ---
-- name: 12 - Instala Cert-Manager via Helm
+- name: 12 - Instala e Configura MetalLB LoadBalancer (L2 - Resiliente para Esteira)
   hosts: k8s-control-plane-01
-  become: yes
-  vars:
-    cert_manager_namespace: "cert-manager"
-    helm_repo_url: "https://charts.jetstack.io"
-    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
-
+  become: false
   tasks:
-    - name: Adicionar repositorio Helm do Jetstack
-      kubernetes.core.helm_repository:
-        name: jetstack
-        repo_url: "{{ helm_repo_url }}"
+    - name: Criar namespace metallb-system
+      ansible.builtin.command:
+        cmd: kubectl create namespace metallb-system
+      register: create_ns
+      failed_when: create_ns.rc != 0 and 'already exists' not in create_ns.stderr
+      changed_when: create_ns.rc == 0
 
-    - name: Implantar Chart Helm do Cert-Manager com CRDs habilitadas
-      kubernetes.core.helm:
-        name: cert-manager
-        chart_ref: jetstack/cert-manager
-        release_namespace: "{{ cert_manager_namespace }}"
-        create_namespace: true
-        state: present
-        wait: yes
-        kubeconfig: "{{ kubeconfig_path }}"
-        values:
-          installCRDs: true
-          crds:
-            enabled: true
+    - name: Adicionar repositorio Helm do MetalLB
+      ansible.builtin.command:
+        cmd: helm repo add metallb https://metallb.github.io/metallb
+      register: helm_repo
+      changed_when: "'has been added' in helm_repo.stdout or 'already exists' in helm_repo.stdout"
+
+    - name: Atualizar repositorios Helm
+      ansible.builtin.command:
+        cmd: helm repo update
+
+    - name: Instalar MetalLB via Helm (v0.13.12 Estavel sem FRR)
+      ansible.builtin.command:
+        cmd: helm upgrade --install metallb metallb/metallb --version 0.13.12 -n metallb-system --create-namespace --set speaker.frr.enabled=false
+      register: helm_install
+      changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
+
+    - name: Aguardar o Controller do MetalLB estar em estado Ready (Rollout Status)
+      ansible.builtin.command:
+        cmd: kubectl rollout status deployment/metallb-controller -n metallb-system --timeout=180s
+      changed_when: false
+
+    - name: Aplicar Pool de IPs e L2Advertisement do MetalLB (com Retry para Webhook TLS)
+      ansible.builtin.shell: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: metallb.io/v1beta1
+        kind: IPAddressPool
+        metadata:
+          name: first-pool
+          namespace: metallb-system
+        spec:
+          addresses:
+            - 10.0.39.200-10.0.39.250
+        ---
+        apiVersion: metallb.io/v1beta1
+        kind: L2Advertisement
+        metadata:
+          name: l2-adv
+          namespace: metallb-system
+        EOF
+      register: apply_metallb_config
+      until: apply_metallb_config.rc == 0
+      retries: 15
+      delay: 5
+      changed_when: "'configured' in apply_metallb_config.stdout or 'created' in apply_metallb_config.stdout"
