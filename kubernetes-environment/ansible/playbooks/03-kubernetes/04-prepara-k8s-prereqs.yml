@@ -1,8 +1,9 @@
 ---
-- name: 04 - Prepara Prerequisitos do Kubernetes em Todos os Nos
+- name: 04 - Prepara Prerequisitos do Kubernetes v1.37 em Todos os Nos
   hosts: k8s_control_planes:k8s_workers
   become: yes
   vars:
+    k8s_version_short: "1.37"
     crictl_version: "v1.30.0"
     containerd_socket: "unix:///run/containerd/containerd.sock"
 
@@ -62,6 +63,31 @@
         state: present
         update_cache: yes
 
+    - name: Criar diretorio para chaves de repositorio APT (/etc/apt/keyrings)
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Baixar chave GPG oficial do Kubernetes v1.37
+      ansible.builtin.get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/v1.37/deb/Release.key"
+        dest: /tmp/k8s-release.key
+        mode: '0644'
+        force: yes
+
+    - name: Converter chave GPG para formato dearmored
+      ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/k8s-release.key
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Adicionar repositorio APT oficial do Kubernetes v1.37
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.37/deb/ /"
+        state: present
+        filename: kubernetes
+        update_cache: yes
+
     - name: Baixar e instalar a ferramenta crictl em /usr/local/bin
       ansible.builtin.unarchive:
         src: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictl_version }}/crictl-{{ crictl_version }}-linux-amd64.tar.gz"
@@ -79,15 +105,27 @@
           debug: false
         mode: '0644'
 
-    - name: Instalar containerd e pacotes do Kubernetes (kubelet, kubeadm, kubectl)
+    - name: Desbloquear trava (unhold) de pacotes anteriores do Kubernetes
+      ansible.builtin.command: apt-mark unhold kubelet kubeadm kubectl
+      register: unhold_k8s
+      changed_when: false
+      failed_when: false
+
+    - name: Instalar containerd e pacotes do Kubernetes v1.37
       ansible.builtin.apt:
         name:
           - containerd
-          - kubelet
-          - kubeadm
-          - kubectl
+          - kubelet=1.37.*
+          - kubeadm=1.37.*
+          - kubectl=1.37.*
         state: present
         update_cache: yes
+        allow_downgrade: yes
+
+    - name: Aplicar trava (hold) nos pacotes v1.37 do Kubernetes
+      ansible.builtin.command: apt-mark hold kubelet kubeadm kubectl
+      register: hold_k8s
+      changed_when: false
 
     - name: Garante diretorio de configuracao do containerd
       ansible.builtin.file:

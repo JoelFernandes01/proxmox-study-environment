@@ -1,61 +1,48 @@
 ---
-- name: 05 - Inicializa Control Plane Principal (k8s-control-plane-01)
+- name: 05 - Inicializa Control Plane Principal (k8s-control-plane-01) v1.37
   hosts: k8s-control-plane-01
   become: yes
   vars:
     control_plane_endpoint: "10.0.39.50:6443"
     pod_network_cidr: "192.168.0.0/16"
     ansible_user_name: "connect"
+    kubernetes_version: "v1.37.0"
 
   tasks:
-    - name: Executar limpeza preventiva completa do Kubeadm e etcd
-      ansible.builtin.shell: |
-        kubeadm reset -f || true
-        systemctl stop kubelet || true
-        crictl rm -f $(crictl ps -a -q) 2>/dev/null || true
-        rm -rf /etc/kubernetes/manifests/*
-        rm -rf /etc/kubernetes/pki/*
-        rm -rf /var/lib/etcd/*
-        rm -rf /var/lib/kubelet/*
-        rm -rf /etc/cni/net.d/*
-        rm -rf /home/{{ ansible_user_name }}/.kube /root/.kube
-        iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
-      changed_when: false
+    - name: Executar limpeza preventiva do Kubeadm e etcd
+      ansible.builtin.command:
+        cmd: kubeadm reset -f
+      failed_when: false
 
-    - name: Inicializar o cluster Kubernetes com Kubeadm
+    - name: Inicializar o cluster Kubernetes v1.37 com Kubeadm
       ansible.builtin.command: >
         kubeadm init
+        --kubernetes-version="{{ kubernetes_version }}"
         --control-plane-endpoint="{{ control_plane_endpoint }}"
         --upload-certs
         --pod-network-cidr="{{ pod_network_cidr }}"
-      register: kubeadm_init_output
 
-    - name: Criar diretorio .kube para o usuario root
+    - name: Criar admin-local.conf apontando diretamente para o IP do CP-01
+      ansible.builtin.command: >
+        sed 's|10.0.39.50:6443|10.0.39.43:6443|g' /etc/kubernetes/admin.conf
+      register: admin_local
+      changed_when: false
+
+    - name: Criar diretorio .kube para o usuario root e connect
       ansible.builtin.file:
-        path: /root/.kube
+        path: "{{ item }}"
         state: directory
-        mode: '0750'
-
-    - name: Copiar admin.conf para o usuario root
-      ansible.builtin.copy:
-        src: /etc/kubernetes/admin.conf
-        dest: /root/.kube/config
-        remote_src: true
-        mode: '0600'
-
-    - name: Criar diretorio .kube para o usuario connect
-      ansible.builtin.file:
-        path: "/home/{{ ansible_user_name }}/.kube"
-        state: directory
-        owner: "{{ ansible_user_name }}"
-        group: "{{ ansible_user_name }}"
         mode: '0755'
+      loop:
+        - /root/.kube
+        - "/home/{{ ansible_user_name }}/.kube"
 
-    - name: Copiar admin.conf para o usuario connect
+    - name: Copiar admin.conf para a pasta .kube
       ansible.builtin.copy:
         src: /etc/kubernetes/admin.conf
-        dest: "/home/{{ ansible_user_name }}/.kube/config"
+        dest: "{{ item }}/config"
         remote_src: true
-        owner: "{{ ansible_user_name }}"
-        group: "{{ ansible_user_name }}"
         mode: '0600'
+      loop:
+        - /root/.kube
+        - "/home/{{ ansible_user_name }}/.kube"

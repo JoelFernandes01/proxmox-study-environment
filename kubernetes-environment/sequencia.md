@@ -17,8 +17,9 @@ time terraform apply \
 terraform apply -parallelism=1 -auto-approve
 cd ansible
 cat inventory.yml
-for i in {40..45} {60..65} 70; do ssh-keygen -R "10.0.39.$i"; done
-for i in {40..45} {60..65} 70; do ssh-keyscan -H "10.0.39.$i" >> ~/.ssh/known_hosts; done
+for ip in 10.0.39.{40..45} 10.0.39.{61..63} 10.0.39.70; do ssh-keygen -R $ip 2>/dev/null; ssh-copy-id -i ~/.ssh/id_terraform.pub -o StrictHostKeyChecking=no connect@$ip; done
+# for i in {40..45} {60..65} 70; do ssh-keygen -R "10.0.39.$i"; done
+# for i in {40..45} {60..65} 70; do ssh-keyscan -H "10.0.39.$i" >> ~/.ssh/known_hosts; done
 ansible all -i inventory.yml -m ping
 ssh -i ~/.ssh/id_terraform connect@10.0.39.43 "sudo cat /etc/kubernetes/admin.conf" > ~/.kube/config
 chmod 600 ~/.kube/config
