@@ -20,3 +20,4 @@
 - import_playbook: playbooks/03-kubernetes/14-instala-cert-manager.yml
 - import_playbook: playbooks/03-kubernetes/15-configura-cluster-issuer-ca.yml
 - import_playbook: playbooks/03-kubernetes/16-deploy-aplicacao-teste-https.yml
+- import_playbook: playbooks/04-management/17-valida-cluster-k8s-e2e.yml
