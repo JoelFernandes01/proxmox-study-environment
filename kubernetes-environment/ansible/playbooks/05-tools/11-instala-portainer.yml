@@ -1,0 +1,169 @@
+---
+- name: 11 - Instala Portainer CE e Cria Ingress Traefik (Declarativo sem Helm)
+  hosts: k8s-control-plane-01
+  become: yes
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    portainer_namespace: "portainer"
+
+  tasks:
+    - name: Criar Namespace portainer
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ portainer_namespace }}"
+
+    - name: Criar ServiceAccount para o Portainer
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: portainer-sa-clusteradmin
+            namespace: "{{ portainer_namespace }}"
+
+    - name: Criar ClusterRoleBinding de Cluster-Admin para o Portainer
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: portainer-sa-clusteradmin-binding
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: cluster-admin
+          subjects:
+            - kind: ServiceAccount
+              name: portainer-sa-clusteradmin
+              namespace: "{{ portainer_namespace }}"
+
+    - name: Criar PersistentVolumeClaim (PVC) NFS para o Portainer
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: portainer-pvc
+            namespace: "{{ portainer_namespace }}"
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: nfs-client
+            resources:
+              requests:
+                storage: 10Gi
+
+    - name: Criar Deployment do Portainer CE
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: portainer
+            namespace: "{{ portainer_namespace }}"
+            labels:
+              app.kubernetes.io/name: portainer
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app.kubernetes.io/name: portainer
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: portainer
+              spec:
+                serviceAccountName: portainer-sa-clusteradmin
+                containers:
+                  - name: portainer
+                    image: portainer/portainer-ce:latest
+                    imagePullPolicy: IfNotPresent
+                    args:
+                      - --tunnel-port=30001
+                    ports:
+                      - name: http
+                        containerPort: 9000
+                      - name: tunnel
+                        containerPort: 30001
+                    volumeMounts:
+                      - name: data
+                        mountPath: /data
+                volumes:
+                  - name: data
+                    persistentVolumeClaim:
+                      claimName: portainer-pvc
+
+    - name: Criar Service ClusterIP para o Portainer
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: portainer
+            namespace: "{{ portainer_namespace }}"
+          spec:
+            type: ClusterIP
+            ports:
+              - name: http
+                port: 9000
+                targetPort: 9000
+              - name: tunnel
+                port: 30001
+                targetPort: 30001
+            selector:
+              app.kubernetes.io/name: portainer
+
+    - name: Criar Traefik Ingress para o Portainer (portainer.nverse.local e portainer.local)
+      kubernetes.core.k8s:
+        state: present
+        kubeconfig: "{{ kubeconfig_path }}"
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: portainer-ingress
+            namespace: "{{ portainer_namespace }}"
+            annotations:
+              traefik.ingress.kubernetes.io/router.entrypoints: web
+          spec:
+            ingressClassName: traefik
+            rules:
+              - host: portainer.nverse.local
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: portainer
+                          port:
+                            number: 9000
+              - host: portainer.local
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: portainer
+                          port:
+                            number: 9000
+
+    - name: Exibir instrucoes de acesso ao Portainer
+      ansible.builtin.debug:
+        msg: "Portainer CE instalado com sucesso! Acesse http://portainer.nverse.local para criar a senha admin."
