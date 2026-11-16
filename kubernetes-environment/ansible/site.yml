@@ -1,23 +1,83 @@
 ---
-# =========================================================================
-# Playbook Mestre — Esteira Completa de Instalação do K8s HA (nverse.local)
-# =========================================================================
+# ==============================================================================
+# PLAYBOOK MESTRE - ESTEIRA DE AUTOMAÇÃO KUBERNETES HA NO PROXMOX VE
+# Orquestração Sequencial Completa por Subdiretórios (00 a 18)
+# ==============================================================================
 
-- import_playbook: playbooks/00-base/00-prepara-so.yml
-- import_playbook: playbooks/01-storage/01-configura-nfs-server.yml
-- import_playbook: playbooks/02-loadbalancer/02-configura-keepalived.yml
-- import_playbook: playbooks/02-loadbalancer/03-configura-haproxy.yml
-- import_playbook: playbooks/03-kubernetes/04-prepara-k8s-prereqs.yml
-- import_playbook: playbooks/03-kubernetes/05-init-control-plane-01.yml
-- import_playbook: playbooks/03-kubernetes/06-gera-tokens-join.yml
-- import_playbook: playbooks/03-kubernetes/07-join-control-planes.yml
-- import_playbook: playbooks/03-kubernetes/08-join-workers.yml
-- import_playbook: playbooks/03-kubernetes/09-instala-cni-calico.yml
-- import_playbook: playbooks/03-kubernetes/10-instala-nfs-provisioner.yml
-- import_playbook: playbooks/03-kubernetes/11-instala-metrics-server.yml
-- import_playbook: playbooks/03-kubernetes/12-instala-metallb.yml
-- import_playbook: playbooks/03-kubernetes/13-instala-traefik-ingress.yml
-- import_playbook: playbooks/03-kubernetes/14-instala-cert-manager.yml
-- import_playbook: playbooks/03-kubernetes/15-configura-cluster-issuer-ca.yml
-- import_playbook: playbooks/03-kubernetes/16-deploy-aplicacao-teste-https.yml
-- import_playbook: playbooks/04-management/17-valida-cluster-k8s-e2e.yml
+# ------------------------------------------------------------------------------
+# FASE 00: BASE DO SISTEMA OPERACIONAL
+# ------------------------------------------------------------------------------
+- name: 00 - Preparação Base do Sistema Operacional (Ubuntu 24.04 LTS)
+  import_playbook: playbooks/00-base/00-prepara-so.yml
+
+# ------------------------------------------------------------------------------
+# FASE 01: ARMAZENAMENTO PERSISTENTE (STORAGE HOST)
+# ------------------------------------------------------------------------------
+- name: 01 - Configuração do Servidor NFS no Host / Storage Node
+  import_playbook: playbooks/01-storage/01-configura-nfs-server.yml
+
+# ------------------------------------------------------------------------------
+# FASE 02: HIGH AVAILABILITY LOAD BALANCER (CONTROL PLANE VIP)
+# ------------------------------------------------------------------------------
+- name: 02 - Configuração do Keepalived para VIP do Control Plane
+  import_playbook: playbooks/02-loadbalancer/02-configura-keepalived.yml
+
+- name: 03 - Configuração do HAProxy para Balanceamento Kube-API
+  import_playbook: playbooks/02-loadbalancer/03-configura-haproxy.yml
+
+# ------------------------------------------------------------------------------
+# FASE 03: BOOTSTRAP E EXPANSÃO DO CLUSTER KUBERNETES
+# ------------------------------------------------------------------------------
+- name: 04 - Preparação dos Pré-requisitos Kubernetes (Containers, Swap, Kubelet)
+  import_playbook: playbooks/03-kubernetes/04-prepara-k8s-prereqs.yml
+
+- name: 05 - Inicialização do Primeiro Control Plane (k8s-control-plane-01)
+  import_playbook: playbooks/03-kubernetes/05-init-control-plane-01.yml
+
+- name: 06 - Geração Automática de Tokens e Certificados de Join
+  import_playbook: playbooks/03-kubernetes/06-gera-tokens-join.yml
+
+- name: 07 - Join dos Control Planes Adicionais (k8s-control-plane-02 e 03)
+  import_playbook: playbooks/03-kubernetes/07-join-control-planes.yml
+
+- name: 08 - Join dos Worker Nodes (k8s-worker-01, 02 e 03)
+  import_playbook: playbooks/03-kubernetes/08-join-workers.yml
+
+# ------------------------------------------------------------------------------
+# FASE 04: REDE INTERNA E PROVISIONAMENTO DE ARMAZENAMENTO K8S
+# ------------------------------------------------------------------------------
+- name: 09 - Instalação do CNI Calico (Rede Pod-to-Pod e Network Policies)
+  import_playbook: playbooks/04-network-storage/09-instala-cni-calico.yml
+
+- name: 10 - Instalação do NFS Subdir External Provisioner (StorageClass nfs-client)
+  import_playbook: playbooks/04-network-storage/10-instala-nfs-provisioner.yml
+
+# ------------------------------------------------------------------------------
+# FASE 05: FERRAMENTAS DE GERENCIAMENTO, INGRESS E INFRAS-SERVIÇOS
+# ------------------------------------------------------------------------------
+- name: 11 - Instalação do Portainer Agent (Integração com Portainer Server)
+  import_playbook: playbooks/05-tools/11-instala-portainer-agent.yml
+
+- name: 12 - Instalação e Configuração do MetalLB (Pool de IPs LoadBalancer)
+  import_playbook: playbooks/05-tools/12-instala-metallb.yml
+
+- name: 13 - Instalação do Metrics Server Nativo (Autoscaling e kubectl top)
+  import_playbook: playbooks/05-tools/13-instala-metrics-server.yml
+
+- name: 14 - Instalação do Traefik Ingress Controller (Roteamento HTTP/HTTPS)
+  import_playbook: playbooks/05-tools/14-instala-traefik-ingress.yml
+
+- name: 15 - Instalação do Cert-Manager (Gestão Automática de Certificados)
+  import_playbook: playbooks/05-tools/15-instala-cert-manager.yml
+
+- name: 16 - Configuração do ClusterIssuer com CA Local
+  import_playbook: playbooks/05-tools/16-configura-cluster-issuer-ca.yml
+
+# ------------------------------------------------------------------------------
+# FASE 06: TESTES E2E E VALIDAÇÃO DE APLICAÇÕES
+# ------------------------------------------------------------------------------
+- name: 17 - Validação E2E de Saúde do Cluster Kubernetes
+  import_playbook: playbooks/06-testing/17-valida-cluster-k8s-e2e.yml
+
+- name: 18 - Deploy e Validação de Aplicação de Teste HTTPS com TLS
+  import_playbook: playbooks/06-testing/18-deploy-aplicacao-teste-https.yml
