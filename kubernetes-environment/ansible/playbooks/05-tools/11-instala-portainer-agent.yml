@@ -1,5 +1,5 @@
 ---
-- name: 11 - Instala Portainer CE e Cria Ingress Traefik (Declarativo sem Helm)
+- name: 11 - Instala Portainer Agent (Com Headless Service)
   hosts: k8s-control-plane-01
   become: yes
   vars:
@@ -7,163 +7,105 @@
     portainer_namespace: "portainer"
 
   tasks:
-    - name: Criar Namespace portainer
-      kubernetes.core.k8s:
+    - name: Garantir dependencias de Python no no de controle (opcional para kubernetes.core)
+      ansible.builtin.apt:
+        name:
+          - python3-kubernetes
+          - python3-yaml
         state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: "{{ portainer_namespace }}"
+      ignore_errors: yes
 
-    - name: Criar ServiceAccount para o Portainer
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: ServiceAccount
-          metadata:
-            name: portainer-sa-clusteradmin
-            namespace: "{{ portainer_namespace }}"
-
-    - name: Criar ClusterRoleBinding de Cluster-Admin para o Portainer
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: rbac.authorization.k8s.io/v1
-          kind: ClusterRoleBinding
-          metadata:
-            name: portainer-sa-clusteradmin-binding
-          roleRef:
-            apiGroup: rbac.authorization.k8s.io
-            kind: ClusterRole
-            name: cluster-admin
-          subjects:
-            - kind: ServiceAccount
-              name: portainer-sa-clusteradmin
-              namespace: "{{ portainer_namespace }}"
-
-    - name: Criar PersistentVolumeClaim (PVC) NFS para o Portainer
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: PersistentVolumeClaim
-          metadata:
-            name: portainer-pvc
-            namespace: "{{ portainer_namespace }}"
-          spec:
-            accessModes:
-              - ReadWriteOnce
-            storageClassName: nfs-client
-            resources:
-              requests:
-                storage: 10Gi
-
-    - name: Criar Deployment do Portainer CE
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: portainer
-            namespace: "{{ portainer_namespace }}"
-            labels:
-              app.kubernetes.io/name: portainer
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app.kubernetes.io/name: portainer
-            template:
-              metadata:
-                labels:
-                  app.kubernetes.io/name: portainer
-              spec:
-                serviceAccountName: portainer-sa-clusteradmin
-                containers:
-                  - name: portainer
-                    image: portainer/portainer-ce:latest
-                    imagePullPolicy: IfNotPresent
-                    args:
-                      - --tunnel-port=30001
-                    ports:
-                      - name: http
-                        containerPort: 9000
-                      - name: tunnel
-                        containerPort: 30001
-                    volumeMounts:
-                      - name: data
-                        mountPath: /data
-                volumes:
-                  - name: data
-                    persistentVolumeClaim:
-                      claimName: portainer-pvc
-
-    - name: Criar Service ClusterIP para o Portainer
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: portainer
-            namespace: "{{ portainer_namespace }}"
-          spec:
-            type: ClusterIP
-            ports:
-              - name: http
-                port: 9000
-                targetPort: 9000
-              - name: tunnel
-                port: 30001
-                targetPort: 30001
-            selector:
-              app.kubernetes.io/name: portainer
-
-    - name: Criar Traefik Ingress para o Portainer (portainer.nverse.local e portainer.local)
-      kubernetes.core.k8s:
-        state: present
-        kubeconfig: "{{ kubeconfig_path }}"
-        definition:
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          metadata:
-            name: portainer-ingress
-            namespace: "{{ portainer_namespace }}"
-            annotations:
-              traefik.ingress.kubernetes.io/router.entrypoints: web
-          spec:
-            ingressClassName: traefik
-            rules:
-              - host: portainer.nverse.local
-                http:
-                  paths:
-                    - path: /
-                      pathType: Prefix
-                      backend:
-                        service:
-                          name: portainer
-                          port:
-                            number: 9000
-              - host: portainer.local
-                http:
-                  paths:
-                    - path: /
-                      pathType: Prefix
-                      backend:
-                        service:
-                          name: portainer
-                          port:
-                            number: 9000
-
-    - name: Exibir instrucoes de acesso ao Portainer
-      ansible.builtin.debug:
-        msg: "Portainer CE instalado com sucesso! Acesse http://portainer.nverse.local para criar a senha admin."
+    - name: Aplicar manifesto completo do Portainer Agent via kubectl
+      ansible.builtin.shell: |
+        cat <<'EOF' | kubectl apply --kubeconfig={{ kubeconfig_path }} -f -
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: {{ portainer_namespace }}
+        ---
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: portainer-agent-sa
+          namespace: {{ portainer_namespace }}
+        ---
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: portainer-agent-binding
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: cluster-admin
+        subjects:
+          - kind: ServiceAccount
+            name: portainer-agent-sa
+            namespace: {{ portainer_namespace }}
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: portainer-agent-headless
+          namespace: {{ portainer_namespace }}
+          labels:
+            app: portainer-agent
+        spec:
+          clusterIP: None
+          selector:
+            app: portainer-agent
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: portainer-agent
+          namespace: {{ portainer_namespace }}
+        spec:
+          type: LoadBalancer
+          ports:
+            - port: 9001
+              targetPort: 9001
+              name: http
+          selector:
+            app: portainer-agent
+        ---
+        apiVersion: apps/v1
+        kind: DaemonSet
+        metadata:
+          name: portainer-agent
+          namespace: {{ portainer_namespace }}
+          labels:
+            app: portainer-agent
+        spec:
+          selector:
+            matchLabels:
+              app: portainer-agent
+          template:
+            metadata:
+              labels:
+                app: portainer-agent
+            spec:
+              serviceAccountName: portainer-agent-sa
+              tolerations:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+                  effect: NoSchedule
+                - key: node-role.kubernetes.io/master
+                  operator: Exists
+                  effect: NoSchedule
+              containers:
+                - name: portainer-agent
+                  image: portainer/agent:2.21.5
+                  imagePullPolicy: IfNotPresent
+                  env:
+                    - name: KUBERNETES_POD_IP
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: status.podIP
+                    - name: AGENT_CLUSTER_ADDR
+                      value: "portainer-agent-headless"
+                  ports:
+                    - containerPort: 9001
+                      name: http
+        EOF
+      args:
+        executable: /bin/bash
