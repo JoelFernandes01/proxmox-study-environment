@@ -1,3 +1,4 @@
+## Comandos para fazer ou refazer o ambiente
 time terraform destroy -parallelism=1 -auto-approve
 time terraform apply -target='proxmox_virtual_environment_vm.k8s["k8s-nfs-01"]' -parallelism=1 -auto-approve
 time terraform apply \
@@ -15,6 +16,26 @@ time terraform apply \
 -target='proxmox_virtual_environment_vm.k8s["k8s-haproxy-02"]' \
 -parallelism=1 -auto-approve
 terraform apply -parallelism=1 -auto-approve
+
+## Comandos para clonar ou destruir o ambiente
+# Clonar ambiente sem K8s
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in {9400..9408}; do new_id=$((id-2000)); name=$(qm config $id | awk "/^name:/{print \$2}"); qm clone $id $new_id --full --storage storage-vms --name "${name}-k8s" && qm start $new_id; done'
+
+# Clonar ambiente com K8s
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in {7400..7408}; do new_id=$((id+2000)); name=$(qm config $id | awk "/^name:/{print \$2}"); new_name=${name%-k8s}; qm clone $id $new_id --full --storage storage-vms --name "${new_name}" && qm start $new_id; done'
+
+## Comandos para destruir o ambiente
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in {9400..9408}; do qm stop $id 2>/dev/null; while [ "$(qm status $id 2>/dev/null | awk "{print \$2}")" = "running" ]; do sleep 1; done; qm destroy $id --purge; done'
+
+## Clonar as VM's
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in {9400..9408}; do new_id=$((id-2000)); name=$(qm config $id | awk "/^name:/{print \$2}"); qm clone $id $new_id --full --storage storage-vms --name "${name}-k8s" && qm start $new_id; done'
+
+ssh -i ~/.ssh/id_terraform root@10.0.39.5 'for id in {11400..11408}; do new_id=$((id-2000)); name=$(qm config $id | awk "/^name:/{print \$2}"); qm clone $id $new_id --full --storage storage-vms --name "${name}" && qm start $new_id; done'
+
+
+
+
+
 cd ansible
 cat inventory.yml
 for ip in 10.0.39.{40..45} 10.0.39.{61..63} 10.0.39.70; do ssh-keygen -R $ip 2>/dev/null; ssh-copy-id -i ~/.ssh/id_terraform.pub -o StrictHostKeyChecking=no connect@$ip; done
