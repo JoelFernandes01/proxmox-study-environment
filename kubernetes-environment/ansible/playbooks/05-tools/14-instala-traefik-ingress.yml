@@ -1,32 +1,43 @@
 ---
-- name: 13 - Instala Traefik Ingress Controller via Helm
-  hosts: k8s-control-plane-01
-  become: true
+- name: 14 - Instala Traefik Ingress Controller via Helm (Resiliente)
+  hosts: k8s_control_plane_01
+  become: false
   vars:
     traefik_namespace: "traefik"
-    helm_repo_url: "https://helm.traefik.io/traefik"
-    kubeconfig_path: "/etc/kubernetes/admin.conf"
-    dashboard_domain: "traefik-k8s.nverse.local"
+    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
+    dashboard_domain: "traefik.infra.local"
 
   tasks:
     - name: Adicionar repositorio Helm do Traefik
-      kubernetes.core.helm_repository:
-        name: traefik
-        repo_url: "{{ helm_repo_url }}"
+      ansible.builtin.command:
+        cmd: helm repo add traefik https://helm.traefik.io/traefik
+      register: repo_add
+      changed_when: "'has been added' in repo_add.stdout or 'already exists' in repo_add.stdout"
 
-    - name: Implantar Chart Helm do Traefik
-      kubernetes.core.helm:
-        name: traefik
-        chart_ref: traefik/traefik
-        release_namespace: "{{ traefik_namespace }}"
-        create_namespace: true
-        state: present
-        wait: yes
-        kubeconfig: "{{ kubeconfig_path }}"
-        values:
-          ingressRoute:
-            dashboard:
-              enabled: true
+    - name: Atualizar repositorios Helm
+      ansible.builtin.command:
+        cmd: helm repo update
+
+    - name: Implantar Chart Helm do Traefik (com timeout ampliado e retry)
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install traefik traefik/traefik
+          --namespace traefik
+          --create-namespace
+          --set ingressRoute.dashboard.enabled=true
+          --timeout 10m0s
+          --wait
+      register: helm_install
+      until: helm_install.rc == 0
+      retries: 3
+      delay: 15
+      changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
+
+    - name: Aguardar o Deployment do Traefik estar em estado Ready
+      ansible.builtin.command: >
+        kubectl rollout status deployment/traefik -n {{ traefik_namespace }}
+        --kubeconfig={{ kubeconfig_path }} --timeout=300s
+      changed_when: false
 
     - name: Obter IP do servico Traefik via kubectl
       ansible.builtin.command: >
@@ -37,38 +48,27 @@
       changed_when: false
 
     - name: Criar IngressRoute para o Dashboard do Traefik K8s
-      ansible.builtin.copy:
-        dest: /tmp/traefik-dashboard-ingress.yaml
-        content: |
-          ---
-          apiVersion: traefik.io/v1alpha1
-          kind: IngressRoute
-          metadata:
-            name: traefik-dashboard
-            namespace: {{ traefik_namespace }}
-          spec:
-            entryPoints:
-              - web
-            routes:
-              - match: Host(`{{ dashboard_domain }}`)
-                kind: Rule
-                services:
-                  - name: api@internal
-                    kind: TraefikService
-
-    - name: Aplicar IngressRoute do Dashboard no Kubernetes (com retry)
-      ansible.builtin.command: >
-        kubectl apply -f /tmp/traefik-dashboard-ingress.yaml
-        --kubeconfig={{ kubeconfig_path }}
+      ansible.builtin.shell: |
+        cat <<'EOF' | kubectl apply -f -
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: traefik-dashboard
+          namespace: {{ traefik_namespace }}
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(`{{ dashboard_domain }}`)
+              kind: Rule
+              services:
+                - name: api@internal
+                  kind: TraefikService
+        EOF
       register: dashboard_apply
       until: dashboard_apply.rc == 0
       retries: 5
       delay: 3
-
-    - name: Remover manifesto temporario do IngressRoute
-      ansible.builtin.file:
-        path: /tmp/traefik-dashboard-ingress.yaml
-        state: absent
 
     - name: Exibir instrucoes de acesso ao Traefik
       ansible.builtin.debug:
