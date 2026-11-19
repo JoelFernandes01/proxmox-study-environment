@@ -1,0 +1,48 @@
+---
+- name: 00 - Provisionamento de VMs no Proxmox via Terraform
+  hosts: localhost
+  connection: local
+  vars:
+    terraform_dir: "{{ playbook_dir }}/../../terraform"
+
+  tasks:
+    - name: Executar Terraform Apply para NFS Server
+      ansible.builtin.shell: |
+        terraform apply -target='proxmox_virtual_environment_vm.k8s["k8s-nfs-01"]' -parallelism=1 -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Executar Terraform Apply para Control Planes
+      ansible.builtin.shell: |
+        terraform apply \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-control-plane-01"]' \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-control-plane-02"]' \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-control-plane-03"]' \
+          -parallelism=1 -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Executar Terraform Apply para Workers
+      ansible.builtin.shell: |
+        terraform apply \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-worker-01"]' \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-worker-02"]' \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-worker-03"]' \
+          -parallelism=1 -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Executar Terraform Apply para HAProxy Load Balancers
+      ansible.builtin.shell: |
+        terraform apply \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-haproxy-01"]' \
+          -target='proxmox_virtual_environment_vm.k8s["k8s-haproxy-02"]' \
+          -parallelism=1 -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Executar Terraform Apply Final (Garantir Estado Completo)
+      ansible.builtin.shell: |
+        terraform apply -parallelism=1 -auto-approve
+      args:
+        chdir: "{{ terraform_dir }}"

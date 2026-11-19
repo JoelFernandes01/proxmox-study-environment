@@ -1,6 +1,6 @@
 ---
 - name: 12 - Instala e Configura MetalLB LoadBalancer (L2 - Resiliente para Esteira)
-  hosts: k8s-control-plane-01
+  hosts: k8s_control_plane_01
   become: false
   tasks:
     - name: Criar namespace metallb-system
@@ -24,6 +24,9 @@
       ansible.builtin.command:
         cmd: helm upgrade --install metallb metallb/metallb --version 0.13.12 -n metallb-system --create-namespace --set speaker.frr.enabled=false
       register: helm_install
+      until: helm_install.rc == 0
+      retries: 5
+      delay: 15
       changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
 
     - name: Aguardar o Controller do MetalLB estar em estado Ready (Rollout Status)

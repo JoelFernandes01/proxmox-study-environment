@@ -1,7 +1,7 @@
 ---
 - name: 09 - Instala CNI Calico no Cluster Kubernetes
   hosts: k8s-control-plane-01
-  become: yes
+  become: true
   vars:
     kubeconfig_path: "/etc/kubernetes/admin.conf"
     control_plane_01_ip: "10.0.39.43"

@@ -1,0 +1,36 @@
+---
+- name: 01 - Limpeza de Known Hosts e Preparação SSH
+  hosts: localhost
+  connection: local
+  vars:
+    target_ips:
+      - 10.0.39.40
+      - 10.0.39.41
+      - 10.0.39.42
+      - 10.0.39.43
+      - 10.0.39.44
+      - 10.0.39.45
+      - 10.0.39.61
+      - 10.0.39.62
+      - 10.0.39.63
+      - 10.0.39.70
+
+  tasks:
+    - name: Remover assinaturas antigas de IP do known_hosts
+      ansible.builtin.command: "ssh-keygen -R {{ item }}"
+      loop: "{{ target_ips }}"
+      ignore_errors: true
+      changed_when: false
+
+    - name: Aguardar porta 22 (SSH) responder em todas as VMs
+      ansible.builtin.wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+        timeout: 180
+      loop: "{{ target_ips }}"
+
+    - name: Registrar impressões digitais SSH das novas VMs
+      ansible.builtin.shell: "ssh-keyscan -H {{ item }} >> ~/.ssh/known_hosts"
+      loop: "{{ target_ips }}"
+      changed_when: false
