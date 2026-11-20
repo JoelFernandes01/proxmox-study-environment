@@ -4,10 +4,19 @@
   become: false
   vars:
     traefik_namespace: "traefik"
-    kubeconfig_path: "/etc/kubernetes/admin-local.conf"
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
     dashboard_domain: "traefik.infra.local"
 
   tasks:
+    - name: Garantir que o Helm esteja instalado no CP-01
+      ansible.builtin.shell: |
+        if ! command -v helm &> /dev/null; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+      become: true
+      register: helm_install_check
+      changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
+
     - name: Adicionar repositorio Helm do Traefik
       ansible.builtin.command:
         cmd: helm repo add traefik https://helm.traefik.io/traefik
