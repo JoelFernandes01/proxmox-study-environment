@@ -1,70 +1,71 @@
 ---
-- name: Atualizar pacotes, desabilitar cloud-init e configurar /etc/hosts
+- name: 00 - Preparacao Base do Sistema Operacional Ubuntu para Kubernetes
   hosts: all
-  become: true
+  become: yes
   tasks:
-    - name: Garantir desativação do Firewall UFW
-      community.general.ufw:
-        state: disabled
+    - name: Desativar SWAP temporariamente
+      ansible.builtin.shell: swapoff -a
+      failed_when: false
 
-    - name: Limpar tabelas residuais do iptables
-      ansible.builtin.shell: |
-        iptables -F && iptables -X && iptables -t nat -F && iptables -t nat -X
-      changed_when: false
+    - name: Remover SWAP permanentemente do fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\s+swap\s+sw\s+.*)$'
+        replace: '# \1'
 
-    - name: Limpar cache ARP preventivo no boot da automação
-      ansible.builtin.shell: "ip neigh flush all"
-      changed_when: false
-
-    - name: Atualizar cache de pacotes
-      apt:
-        update_cache: true
-        upgrade: dist
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Instalar pacotes uteis e cliente NFS em todos os nós
-      apt:
-        name:
-          - git
-          - curl
-          - vim
-          - python3
-          - python3-pip
-          - sudo
-          - openssl
-          - ca-certificates
-          - fish
-          - nfs-common
-          - netcat-openbsd
-        state: present
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Desabilitar alteracoes do cloud-init no /etc/hosts
-      copy:
-        dest: /etc/cloud/cloud.cfg.d/99-disable-hosts.cfg
+    - name: Carregar modulos do kernel (overlay e br_netfilter)
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
         content: |
-          update_etc_hosts: false
-          manage_etc_hosts: false
-        mode: '0644'
+          overlay
+          br_netfilter
 
-    - name: Configurar /etc/hosts em todas as VMs
-      blockinfile:
-        path: /etc/hosts
-        block: |
-          10.0.39.50 k8s-vip.nverse.local k8s-vip
-          10.0.39.41 k8s-haproxy-01.nverse.local k8s-haproxy-01
-          10.0.39.42 k8s-haproxy-02.nverse.local k8s-haproxy-02
-          10.0.39.43 k8s-control-plane-01.nverse.local k8s-control-plane-01
-          10.0.39.44 k8s-control-plane-02.nverse.local k8s-control-plane-02
-          10.0.39.45 k8s-control-plane-03.nverse.local k8s-control-plane-03
-          10.0.39.61 k8s-worker-01.nverse.local k8s-worker-01
-          10.0.39.62 k8s-worker-02.nverse.local k8s-worker-02
-          10.0.39.63 k8s-worker-03.nverse.local k8s-worker-03
-          10.0.39.70 k8s-nfs-01.nverse.local k8s-nfs-01
+    - name: Modprobe overlay e br_netfilter
+      ansible.builtin.shell: |
+        modprobe overlay
+        modprobe br_netfilter
+
+    - name: Configurar parametros do sysctl para Kubernetes
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/k8s.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+
+    - name: Aplicar sysctl
+      ansible.builtin.shell: sysctl --system
+
+    - name: Instalar pacotes essenciais e o shell Fish
+      ansible.builtin.apt:
+        name:
+          - curl
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - software-properties-common
+          - fish
         state: present
+        update_cache: yes
 
-    - name: Configurar sudoers para o usuario connect sem senha
-      copy:
-        dest: /etc/sudoers.d/connect
-        content: "connect ALL=(ALL) NOPASSWD:ALL\n"
-        mode: '0440'
+    - name: Definir Fish como shell padrao para os usuarios
+      ansible.builtin.user:
+        name: "{{ item }}"
+        shell: /usr/bin/fish
+      loop:
+        - "{{ ansible_user | default('connect') }}"
+        - root
+
+    - name: Configurar autocomplete do kubectl e helm no Fish Shell (global)
+      ansible.builtin.copy:
+        dest: /etc/fish/config.fish
+        content: |
+          if status is-interactive
+              # Autocomplete kubectl e helm
+              if type -q kubectl
+                  kubectl completion fish | source
+              end
+              if type -q helm
+                  helm completion fish | source
+              end
+          end
