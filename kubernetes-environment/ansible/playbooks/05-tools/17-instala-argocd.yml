@@ -1,6 +1,6 @@
 ---
 - name: 17 - Instala e Configura ArgoCD GitOps Engine (Resiliente para Esteira)
-  hosts: k8s_control_plane_01
+  hosts: k8s-control-plane-01
   become: false
   tasks:
     - name: Criar namespace argocd
