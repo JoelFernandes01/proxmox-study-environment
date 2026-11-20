@@ -16,9 +16,8 @@
     - name: Adicionar flag --kubelet-insecure-tls no manifesto do Metrics Server
       ansible.builtin.replace:
         path: /tmp/metrics-server-components.yaml
-        regexp: 'args:'
-        replace: "args:
-        - --kubelet-insecure-tls"
+        regexp: '(- --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname)'
+        replace: '\1\n        - --kubelet-insecure-tls'
 
     - name: Aplicar manifesto do Metrics Server no Kubernetes (com Retry)
       ansible.builtin.command: >
