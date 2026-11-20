@@ -4,7 +4,7 @@
   become: false
   vars:
     argocd_namespace: "argocd"
-    argocd_domain: "argocd.infra.local"
+    argocd_domain: "argocd.nverse.local"
     kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
