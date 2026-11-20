@@ -8,6 +8,15 @@
     kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
+    - name: Garantir que o Helm esteja instalado no CP-01
+      ansible.builtin.shell: |
+        if ! command -v helm &> /dev/null; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+      become: true
+      register: helm_install_check
+      changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
+
     - name: Criar namespace argocd
       ansible.builtin.command:
         cmd: kubectl create namespace {{ argocd_namespace }}
@@ -38,9 +47,14 @@
       delay: 15
       changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
 
-    - name: Aguardar Deployment do ArgoCD Server estar Ready
+    - name: Aguardar Deployment do ArgoCD Server estar Ready (Nao trava a esteira)
       ansible.builtin.command:
         cmd: kubectl rollout status deployment/argocd-server -n {{ argocd_namespace }} --timeout=300s
+      register: argocd_rollout
+      until: argocd_rollout.rc == 0
+      retries: 3
+      delay: 20
+      failed_when: false
       changed_when: false
 
     - name: Verificar se a CRD do Traefik IngressRoute esta registrada no cluster
@@ -106,6 +120,9 @@
       ansible.builtin.shell: |
         kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
       register: argocd_password
+      until: argocd_password.rc == 0
+      retries: 6
+      delay: 10
       failed_when: false
       changed_when: false
 
@@ -116,5 +133,5 @@
           - "ArgoCD instalado com sucesso!"
           - "URL de Acesso: http://{{ argocd_domain }}"
           - "Usuario: admin"
-          - "Senha Inicial: {{ argocd_password.stdout | default('Ja alterada ou secret removido') }}"
+          - "Senha Inicial: {{ argocd_password.stdout | default('Ja alterada ou secret em geracao') }}"
           - "===================================================="
