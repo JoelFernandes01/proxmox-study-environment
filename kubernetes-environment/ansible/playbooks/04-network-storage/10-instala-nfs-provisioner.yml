@@ -1,71 +1,74 @@
 ---
-- name: Preparar nós do cluster para montagem NFS
-  hosts: k8s_control_planes, k8s_workers
-  become: true
-  ignore_unreachable: true
+- name: 10 - Instala NFS Subdir External Provisioner via Helm (Resiliente)
+  hosts: k8s_control_plane_01
+  become: false
+  vars:
+    nfs_server_ip: "10.0.39.70"
+    nfs_export_path: "/srv/nfs/k8s"
+    nfs_namespace: "kube-system"
+    storage_class_name: "nfs-client"
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+
   tasks:
-    - name: Aguardar a porta 2049 do Servidor NFS (10.0.39.70) estar liberada
-      ansible.builtin.wait_for:
-        host: 10.0.39.70
-        port: 2049
-        timeout: 60
-        state: started
-
-    - name: Forçar atualização da tabela ARP antes da montagem
-      ansible.builtin.shell: "ip neigh flush all"
-      changed_when: false
-
-    - name: Instalar pacote nfs-common
-      ansible.builtin.apt:
-        name: nfs-common
-        state: present
-        update_cache: true
-
-- name: Instalar NFS Subdir External Provisioner via Helm
-  hosts: k8s-control-plane-01
-  become: true
-  tasks:
-    - name: Garantir que o Helm esteja instalado no CP-01
-      ansible.builtin.shell: |
-        if ! command -v helm &> /dev/null; then
-          curl -fsSL https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tar.gz
-          tar -zxvf /tmp/helm.tar.gz -C /tmp/
-          mv /tmp/linux-amd64/helm /usr/local/bin/helm
-          chmod +x /usr/local/bin/helm
-          rm -f /tmp/helm.tar.gz
-        fi
-      args:
-        executable: /bin/bash
-        creates: /usr/local/bin/helm
-
     - name: Adicionar repositorio Helm do NFS Provisioner
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
-      ansible.builtin.command: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
-      register: helm_repo_add
-      changed_when: helm_repo_add.rc == 0
+      ansible.builtin.command:
+        cmd: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+      register: repo_add
+      changed_when: "'has been added' in repo_add.stdout or 'already exists' in repo_add.stdout"
 
     - name: Atualizar repositorios Helm
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
-      ansible.builtin.command: helm repo update
-      register: helm_repo_update
-      changed_when: helm_repo_update.rc == 0
+      ansible.builtin.command:
+        cmd: helm repo update
 
-    - name: Deploy / Upgrade do NFS Provisioner no cluster
-      become_user: connect
-      environment:
-        KUBECONFIG: /home/connect/.kube/config
-      ansible.builtin.command: >
-        helm upgrade --install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
-        --namespace kube-system
-        --set nfs.server=10.0.39.70
-        --set nfs.path=/srv/nfs/k8s
-        --set storageClass.name=nfs-client
-        --set storageClass.defaultClass=true
-      register: helm_nfs_result
-      until: helm_nfs_result.rc == 0
-      retries: 5
-      delay: 15
+    - name: Verificar e destravar release do Helm se estiver pendente de execucao anterior
+      ansible.builtin.shell: |
+        STATUS=$(helm status nfs-subdir-external-provisioner -n {{ nfs_namespace }} -o json 2>/dev/null | jq -r '.info.status' || echo 'not-found')
+        if [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-rollback" ]; then
+          echo "Detectada release em estado $STATUS. Removendo trava para nao parar a esteira..."
+          kubectl delete secret -n {{ nfs_namespace }} -l owner=helm,name=nfs-subdir-external-provisioner --ignore-not-found
+        fi
+      register: helm_cleanup
+      changed_when: "'Detectada release' in helm_cleanup.stdout"
+      failed_when: false
+
+    - name: Deploy / Upgrade do NFS Provisioner no cluster (com Auto-Recovery)
+      block:
+        - name: Executar helm upgrade --install do NFS Provisioner
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install nfs-subdir-external-provisioner
+              nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+              --namespace {{ nfs_namespace }}
+              --set nfs.server={{ nfs_server_ip }}
+              --set nfs.path={{ nfs_export_path }}
+              --set storageClass.name={{ storage_class_name }}
+              --set storageClass.defaultClass=true
+              --timeout 5m0s
+          register: helm_deploy
+          changed_when: "'STATUS: deployed' in helm_deploy.stdout or 'upgraded' in helm_deploy.stdout"
+
+      rescue:
+        - name: Recuperar de falha de trava - Remover secret travado e desinstalar release corrompida
+          ansible.builtin.shell: |
+            kubectl delete secret -n {{ nfs_namespace }} -l owner=helm,name=nfs-subdir-external-provisioner --ignore-not-found
+            helm uninstall nfs-subdir-external-provisioner -n {{ nfs_namespace }} --ignore-not-found || true
+
+        - name: Reinstalar NFS Provisioner apos limpeza automatica
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install nfs-subdir-external-provisioner
+              nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+              --namespace {{ nfs_namespace }}
+              --set nfs.server={{ nfs_server_ip }}
+              --set nfs.path={{ nfs_export_path }}
+              --set storageClass.name={{ storage_class_name }}
+              --set storageClass.defaultClass=true
+              --timeout 5m0s
+          register: helm_reinstall
+          changed_when: true
+
+    - name: Verificar se a StorageClass default foi criada
+      ansible.builtin.command:
+        cmd: kubectl get storageclass {{ storage_class_name }} --kubeconfig={{ kubeconfig_path }}
+      register: sc_check
+      changed_when: false
