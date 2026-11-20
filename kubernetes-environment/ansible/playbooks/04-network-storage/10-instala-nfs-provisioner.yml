@@ -10,6 +10,15 @@
     kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
+    - name: Garantir que o Helm esteja instalado no CP-01
+      ansible.builtin.shell: |
+        if ! command -v helm &> /dev/null; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+      become: true
+      register: helm_install_check
+      changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
+
     - name: Adicionar repositorio Helm do NFS Provisioner
       ansible.builtin.command:
         cmd: helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
