@@ -1,28 +1,87 @@
 ---
-- name: 14 - Instala Cert-Manager via Helm
+- name: 15 - Instala Cert-Manager via Helm (Resiliente para Esteira)
   hosts: k8s-control-plane-01
-  become: true
+  become: false
   vars:
     cert_manager_namespace: "cert-manager"
+    cert_manager_version: "v1.13.3"
     helm_repo_url: "https://charts.jetstack.io"
-    kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
-    - name: Adicionar repositorio Helm do Jetstack
-      kubernetes.core.helm_repository:
-        name: jetstack
-        repo_url: "{{ helm_repo_url }}"
+    - name: Garantir que o Helm esteja instalado no CP-01
+      ansible.builtin.shell: |
+        if ! command -v helm &> /dev/null; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+      become: true
+      register: helm_install_check
+      changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
 
-    - name: Implantar Chart Helm do Cert-Manager com CRDs habilitadas
-      kubernetes.core.helm:
-        name: cert-manager
-        chart_ref: jetstack/cert-manager
-        release_namespace: "{{ cert_manager_namespace }}"
-        create_namespace: true
-        state: present
-        wait: yes
-        kubeconfig: "{{ kubeconfig_path }}"
-        values:
-          installCRDs: true
-          crds:
-            enabled: true
+    - name: Criar namespace cert-manager
+      ansible.builtin.command:
+        cmd: kubectl create namespace {{ cert_manager_namespace }}
+      register: create_ns
+      failed_when: create_ns.rc != 0 and 'already exists' not in create_ns.stderr
+      changed_when: create_ns.rc == 0
+
+    - name: Adicionar repositorio Helm do Jetstack
+      ansible.builtin.command:
+        cmd: helm repo add jetstack {{ helm_repo_url }}
+      register: helm_repo
+      changed_when: "'has been added' in helm_repo.stdout or 'already exists' in helm_repo.stdout"
+
+    - name: Atualizar repositorios Helm
+      ansible.builtin.command:
+        cmd: helm repo update
+
+    - name: Verificar e destravar release do Cert-Manager no Helm se estiver em estado pendente
+      ansible.builtin.shell: |
+        STATUS=$(helm status cert-manager -n {{ cert_manager_namespace }} -o json 2>/dev/null | jq -r '.info.status' || echo 'not-found')
+        if [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-rollback" ]; then
+          echo "Detectada release do cert-manager em estado $STATUS. Removendo trava do etcd/Helm..."
+          kubectl delete secret -n {{ cert_manager_namespace }} -l owner=helm,name=cert-manager --ignore-not-found
+        fi
+      register: helm_cleanup
+      changed_when: "'Detectada release' in helm_cleanup.stdout"
+      failed_when: false
+
+    - name: Implantar Chart Helm do Cert-Manager com CRDs habilitadas (Auto-Recovery etcd)
+      block:
+        - name: Executar helm upgrade --install do cert-manager
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install cert-manager jetstack/cert-manager
+              --namespace {{ cert_manager_namespace }}
+              --version {{ cert_manager_version }}
+              --set installCRDs=true
+              --timeout 10m0s
+          register: helm_install
+          changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
+
+      rescue:
+        - name: Recuperar de falha de timeout do etcd - Limpar secret travado e desinstalar release parcial
+          ansible.builtin.shell: |
+            kubectl delete secret -n {{ cert_manager_namespace }} -l owner=helm,name=cert-manager --ignore-not-found
+            helm uninstall cert-manager -n {{ cert_manager_namespace }} --ignore-not-found || true
+            sleep 10
+
+        - name: Reinstalar Cert-Manager apos limpeza de timeout do etcd
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install cert-manager jetstack/cert-manager
+              --namespace {{ cert_manager_namespace }}
+              --version {{ cert_manager_version }}
+              --set installCRDs=true
+              --timeout 10m0s
+          register: helm_reinstall
+          changed_when: true
+
+    - name: Aguardar Deployments do Cert-Manager ficarem em estado Ready
+      ansible.builtin.command: >
+        kubectl rollout status deployment/cert-manager -n {{ cert_manager_namespace }} --timeout=180s
+      changed_when: false
+
+    - name: Aguardar Webhook do Cert-Manager estar operando
+      ansible.builtin.command: >
+        kubectl rollout status deployment/cert-manager-webhook -n {{ cert_manager_namespace }} --timeout=180s
+      changed_when: false
