@@ -1,7 +1,7 @@
 ---
 - name: 00 - Preparacao Base do Sistema Operacional Ubuntu para Kubernetes
   hosts: all
-  become: yes
+  become: true
   tasks:
     - name: Desativar SWAP temporariamente
       ansible.builtin.shell: swapoff -a

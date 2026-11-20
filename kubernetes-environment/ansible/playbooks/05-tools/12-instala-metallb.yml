@@ -1,6 +1,6 @@
 ---
 - name: 12 - Instala e Configura MetalLB LoadBalancer (L2 - Resiliente para Esteira)
-  hosts: k8s_control_plane_01
+  hosts: k8s-control-plane-01
   become: false
   tasks:
     - name: Criar namespace metallb-system
