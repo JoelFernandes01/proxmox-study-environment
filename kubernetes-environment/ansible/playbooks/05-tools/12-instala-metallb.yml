@@ -2,10 +2,23 @@
 - name: 12 - Instala e Configura MetalLB LoadBalancer (L2 - Resiliente para Esteira)
   hosts: k8s-control-plane-01
   become: false
+  vars:
+    metallb_namespace: "metallb-system"
+    ip_range: "10.0.39.200-10.0.39.250"
+
   tasks:
+    - name: Garantir que o Helm esteja instalado no CP-01
+      ansible.builtin.shell: |
+        if ! command -v helm &> /dev/null; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+      become: true
+      register: helm_install_check
+      changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
+
     - name: Criar namespace metallb-system
       ansible.builtin.command:
-        cmd: kubectl create namespace metallb-system
+        cmd: kubectl create namespace {{ metallb_namespace }}
       register: create_ns
       failed_when: create_ns.rc != 0 and 'already exists' not in create_ns.stderr
       changed_when: create_ns.rc == 0
@@ -20,18 +33,50 @@
       ansible.builtin.command:
         cmd: helm repo update
 
-    - name: Instalar MetalLB via Helm (v0.13.12 Estavel sem FRR)
-      ansible.builtin.command:
-        cmd: helm upgrade --install metallb metallb/metallb --version 0.13.12 -n metallb-system --create-namespace --set speaker.frr.enabled=false
-      register: helm_install
-      until: helm_install.rc == 0
-      retries: 5
-      delay: 15
-      changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
+    - name: Verificar e destravar release do MetalLB no Helm se estiver pendente
+      ansible.builtin.shell: |
+        STATUS=$(helm status metallb -n {{ metallb_namespace }} -o json 2>/dev/null | jq -r '.info.status' || echo 'not-found')
+        if [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-rollback" ]; then
+          echo "Detectada release do MetalLB em estado $STATUS. Removendo trava..."
+          kubectl delete secret -n {{ metallb_namespace }} -l owner=helm,name=metallb --ignore-not-found
+        fi
+      register: helm_cleanup
+      changed_when: "'Detectada release' in helm_cleanup.stdout"
+      failed_when: false
+
+    - name: Instalar ou Atualizar MetalLB via Helm (com Auto-Recovery)
+      block:
+        - name: Executar helm upgrade --install do MetalLB
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install metallb metallb/metallb
+              --version 0.13.12
+              -n {{ metallb_namespace }}
+              --create-namespace
+              --set speaker.frr.enabled=false
+          register: helm_install
+          changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
+
+      rescue:
+        - name: Recuperar de falha de trava - Remover secret travado e desinstalar release corrompida
+          ansible.builtin.shell: |
+            kubectl delete secret -n {{ metallb_namespace }} -l owner=helm,name=metallb --ignore-not-found
+            helm uninstall metallb -n {{ metallb_namespace }} --ignore-not-found || true
+
+        - name: Reinstalar MetalLB apos limpeza automatica
+          ansible.builtin.command:
+            cmd: >
+              helm upgrade --install metallb metallb/metallb
+              --version 0.13.12
+              -n {{ metallb_namespace }}
+              --create-namespace
+              --set speaker.frr.enabled=false
+          register: helm_reinstall
+          changed_when: true
 
     - name: Aguardar o Controller do MetalLB estar em estado Ready (Rollout Status)
       ansible.builtin.command:
-        cmd: kubectl rollout status deployment/metallb-controller -n metallb-system --timeout=180s
+        cmd: kubectl rollout status deployment/metallb-controller -n {{ metallb_namespace }} --timeout=180s
       changed_when: false
 
     - name: Aplicar Pool de IPs e L2Advertisement do MetalLB (com Retry para Webhook TLS)
@@ -41,16 +86,16 @@
         kind: IPAddressPool
         metadata:
           name: first-pool
-          namespace: metallb-system
+          namespace: {{ metallb_namespace }}
         spec:
           addresses:
-            - 10.0.39.200-10.0.39.250
+            - {{ ip_range }}
         ---
         apiVersion: metallb.io/v1beta1
         kind: L2Advertisement
         metadata:
           name: l2-adv
-          namespace: metallb-system
+          namespace: {{ metallb_namespace }}
         EOF
       register: apply_metallb_config
       until: apply_metallb_config.rc == 0
