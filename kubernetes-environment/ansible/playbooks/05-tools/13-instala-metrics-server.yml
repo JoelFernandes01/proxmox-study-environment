@@ -7,10 +7,16 @@
     metrics_url: "https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
 
   tasks:
-    - name: Baixar manifesto oficial do Metrics Server
+    - name: Remover manifesto antigo ou corrompido em /tmp
+      ansible.builtin.file:
+        path: /tmp/metrics-server-components.yaml
+        state: absent
+
+    - name: Baixar manifesto oficial limpo do Metrics Server
       ansible.builtin.get_url:
         url: "{{ metrics_url }}"
         dest: /tmp/metrics-server-components.yaml
+        force: yes
         mode: '0644'
 
     - name: Adicionar flag --kubelet-insecure-tls no manifesto do Metrics Server
