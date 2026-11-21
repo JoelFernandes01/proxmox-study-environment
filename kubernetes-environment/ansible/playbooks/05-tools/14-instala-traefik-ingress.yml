@@ -1,11 +1,11 @@
 ---
-- name: 14 - Instala Traefik Ingress Controller via Helm (Resiliente)
+- name: 14 - Instala Traefik Ingress Controller via Helm (Resiliente com RBAC e Dominio Correto)
   hosts: k8s-control-plane-01
   become: false
   vars:
     traefik_namespace: "traefik"
     kubeconfig_path: "/etc/kubernetes/admin.conf"
-    dashboard_domain: "traefik.infra.local"
+    dashboard_domain: "traefik-k8s.nverse.local"
 
   tasks:
     - name: Garantir que o Helm esteja instalado no CP-01
@@ -27,12 +27,15 @@
       ansible.builtin.command:
         cmd: helm repo update
 
-    - name: Implantar Chart Helm do Traefik (com timeout ampliado e retry)
+    - name: Implantar Chart Helm do Traefik (com RBAC ativado, Ingress/CRD habilitados e timeout)
       ansible.builtin.command:
         cmd: >
           helm upgrade --install traefik traefik/traefik
-          --namespace traefik
+          --namespace {{ traefik_namespace }}
           --create-namespace
+          --set rbac.enabled=true
+          --set providers.kubernetesIngress.enabled=true
+          --set providers.kubernetesCRD.enabled=true
           --set ingressRoute.dashboard.enabled=true
           --timeout 10m0s
           --wait
@@ -56,7 +59,7 @@
       register: traefik_ip
       changed_when: false
 
-    - name: Criar IngressRoute para o Dashboard do Traefik K8s
+    - name: Criar IngressRoute para o Dashboard do Traefik K8s (Suporte aos dominios traefik-k8s e traefik.infra)
       ansible.builtin.shell: |
         cat <<'EOF' | kubectl apply -f -
         apiVersion: traefik.io/v1alpha1
@@ -67,8 +70,9 @@
         spec:
           entryPoints:
             - web
+            - websecure
           routes:
-            - match: Host(`{{ dashboard_domain }}`)
+            - match: Host(`{{ dashboard_domain }}`) || Host(`traefik.infra.local`)
               kind: Rule
               services:
                 - name: api@internal
@@ -82,6 +86,8 @@
     - name: Exibir instrucoes de acesso ao Traefik
       ansible.builtin.debug:
         msg:
+          - "===================================================="
           - "Traefik Ingress Controller ativo no IP: {{ traefik_ip.stdout | default('Pendente') }}"
           - "Adicione no /etc/hosts: {{ traefik_ip.stdout | default('IP_METAL_LB') }} {{ dashboard_domain }}"
           - "Acesse o Dashboard em: http://{{ dashboard_domain }}/dashboard/"
+          - "===================================================="

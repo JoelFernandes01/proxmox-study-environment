@@ -17,10 +17,13 @@
       register: helm_install_check
       changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
 
-    - name: Criar namespace argocd
+    - name: Criar namespace argocd (com retry para resiliencia do kube-apiserver)
       ansible.builtin.command:
         cmd: kubectl create namespace {{ argocd_namespace }}
       register: create_ns
+      until: create_ns.rc == 0 or 'already exists' in create_ns.stderr
+      retries: 5
+      delay: 5
       failed_when: create_ns.rc != 0 and 'already exists' not in create_ns.stderr
       changed_when: create_ns.rc == 0
 
@@ -34,21 +37,28 @@
       ansible.builtin.command:
         cmd: helm repo update
 
-    - name: Instalar ou Atualizar ArgoCD via Helm (Modo Insecure e Desativa Ingress nativo do Chart)
+    - name: Instalar ou Atualizar ArgoCD via Helm (Forcando --insecure no Container do ArgoCD Server)
       ansible.builtin.command:
         cmd: >
           helm upgrade --install argocd argo/argo-cd
           --namespace {{ argocd_namespace }}
           --set server.ingress.enabled=false
           --set server.insecure=true
-          --set configs.params."server\.insecure"=true
+          --set configs.params."server.insecure"="true"
+          --set "server.extraArgs[0]=--insecure"
       register: helm_install
       until: helm_install.rc == 0
       retries: 5
       delay: 15
       changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
 
-    - name: Aguardar Deployment do ArgoCD Server estar Ready (Nao trava a esteira)
+    - name: Forcar argumento --insecure no Deployment do argocd-server se necessario
+      ansible.builtin.shell: |
+        kubectl patch deployment argocd-server -n {{ argocd_namespace }} --type json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/command/-", "value": "--insecure"}]' 2>/dev/null || true
+      failed_when: false
+      changed_when: false
+
+    - name: Aguardar Deployment do ArgoCD Server estar Ready
       ansible.builtin.command:
         cmd: kubectl rollout status deployment/argocd-server -n {{ argocd_namespace }} --timeout=300s
       register: argocd_rollout
@@ -58,50 +68,23 @@
       failed_when: false
       changed_when: false
 
-    - name: Obter IP do LoadBalancer Traefik (para log de confirmacao)
-      ansible.builtin.command: >
-        kubectl get svc traefik -n traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-      register: traefik_ip_check
+    - name: Remover IngressRoute e Ingress antigos se existirem
+      ansible.builtin.command:
+        cmd: kubectl delete ingressroute argocd-server-ingress -n {{ argocd_namespace }} --ignore-not-found
       failed_when: false
       changed_when: false
 
-    - name: Aplicar IngressRoute do Traefik para o ArgoCD Server (Dominio + Fallback de IP)
-      ansible.builtin.shell: |
-        cat <<'EOF' | kubectl apply -f -
-        apiVersion: traefik.io/v1alpha1
-        kind: IngressRoute
-        metadata:
-          name: argocd-server-ingress
-          namespace: {{ argocd_namespace }}
-        spec:
-          entryPoints:
-            - web
-            - websecure
-          routes:
-            - match: Host(`{{ argocd_domain }}`) || PathPrefix(`/`)
-              kind: Rule
-              services:
-                - name: argocd-server
-                  port: 80
-        EOF
-      register: apply_ingress_route
-      until: apply_ingress_route.rc == 0
-      retries: 5
-      delay: 3
-      failed_when: false
-      changed_when: "'configured' in apply_ingress_route.stdout or 'created' in apply_ingress_route.stdout"
-
-    - name: Aplicar Ingress Padrao Kubernetes como fallback universal
+    - name: Aplicar Ingress Padrao do Kubernetes para o ArgoCD (Web e Websecure)
       ansible.builtin.shell: |
         cat <<'EOF' | kubectl apply -f -
         apiVersion: networking.k8s.io/v1
         kind: Ingress
         metadata:
-          name: argocd-server-standard-ingress
+          name: argocd-server-ingress
           namespace: {{ argocd_namespace }}
           annotations:
+            traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
             ingress.kubernetes.io/ssl-redirect: "false"
-            traefik.ingress.kubernetes.io/router.entrypoints: web
         spec:
           ingressClassName: traefik
           rules:
@@ -115,7 +98,8 @@
                         name: argocd-server
                         port:
                           number: 80
-            - http:
+            - host: argocd
+              http:
                 paths:
                   - path: /
                     pathType: Prefix
@@ -125,12 +109,12 @@
                         port:
                           number: 80
         EOF
-      register: apply_std_ingress
-      until: apply_std_ingress.rc == 0
+      register: apply_ingress
+      until: apply_ingress.rc == 0
       retries: 5
       delay: 3
       failed_when: false
-      changed_when: true
+      changed_when: "'configured' in apply_ingress.stdout or 'created' in apply_ingress.stdout"
 
     - name: Obter a senha inicial de admin do ArgoCD
       ansible.builtin.shell: |
@@ -142,13 +126,12 @@
       failed_when: false
       changed_when: false
 
-    - name: Exibir credenciais e URLs de acesso
+    - name: Exibir credenciais iniciais de acesso
       ansible.builtin.debug:
         msg:
           - "===================================================="
-          - "ArgoCD instalado e exposto com sucesso!"
-          - "Acesso por Dominio: http://{{ argocd_domain }}"
-          - "Acesso por IP Direto: http://{{ traefik_ip_check.stdout | default('10.0.39.201') }}"
+          - "ArgoCD instalado com sucesso!"
+          - "URL de Acesso: http://{{ argocd_domain }}"
           - "Usuario: admin"
           - "Senha Inicial: {{ argocd_password.stdout | default('Ja alterada ou secret em geracao') }}"
           - "===================================================="
