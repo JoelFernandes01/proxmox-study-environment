@@ -45,9 +45,10 @@
           - gnupg
           - software-properties-common
           - fish
+          - nfs-common
         state: present
-        update_cache: yes
-
+        update_cache: true
+        
     - name: Definir Fish como shell padrao para os usuarios
       ansible.builtin.user:
         name: "{{ item }}"
