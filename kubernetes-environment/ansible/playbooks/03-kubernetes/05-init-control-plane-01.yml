@@ -3,7 +3,8 @@
   hosts: k8s-control-plane-01
   become: yes
   vars:
-    control_plane_endpoint: "10.0.39.50:6443"
+    control_plane_endpoint: "k8s-api.nverse.local:6443"
+    vip_ip: "10.0.39.50"
     pod_network_cidr: "192.168.0.0/16"
     ansible_user_name: "connect"
     kubernetes_version: "v1.37.0"
@@ -19,14 +20,9 @@
         kubeadm init
         --kubernetes-version="{{ kubernetes_version }}"
         --control-plane-endpoint="{{ control_plane_endpoint }}"
+        --apiserver-cert-extra-sans="k8s-api.nverse.local,{{ vip_ip }}"
         --upload-certs
         --pod-network-cidr="{{ pod_network_cidr }}"
-
-    - name: Criar admin-local.conf apontando diretamente para o IP do CP-01
-      ansible.builtin.command: >
-        sed 's|10.0.39.50:6443|10.0.39.43:6443|g' /etc/kubernetes/admin.conf
-      register: admin_local
-      changed_when: false
 
     - name: Criar diretorio .kube para o usuario root e connect
       ansible.builtin.file:
