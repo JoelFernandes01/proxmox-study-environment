@@ -1,0 +1,89 @@
+---
+# ==============================================================================
+# PLAYBOOK: 27-configura-datasources-grafana.yml
+# FASE: 07-monitoring
+# OBJETIVO: Configurar Data Sources (Prometheus, Alertmanager e Zabbix) no Grafana via Provisioning
+# ==============================================================================
+
+- name: 27 - Configura Data Sources no Grafana
+  hosts: k8s_control_planes
+  become: true
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    monitoring_namespace: "monitoring"
+
+  tasks:
+    - name: Garantir pasta de manifestos no control-plane
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifestos"
+        state: directory
+        mode: '0755'
+      run_once: true
+
+    - name: Criar manifesto do ConfigMap de Data Sources do Grafana (Prometheus, Alertmanager e Zabbix)
+      ansible.builtin.copy:
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifestos/grafana-datasources.yaml"
+        mode: '0644'
+        content: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-datasources
+            namespace: {{ monitoring_namespace }}
+          data:
+            datasources.yaml: |
+              apiVersion: 1
+              datasources:
+              - name: Prometheus
+                type: prometheus
+                url: http://prometheus-service.monitoring.svc.cluster.local:9090
+                access: proxy
+                isDefault: true
+                editable: true
+              - name: Alertmanager
+                type: alertmanager
+                url: http://alertmanager-service.monitoring.svc.cluster.local:9093
+                access: proxy
+                editable: true
+                jsonData:
+                  implementation: prometheus
+              - name: Zabbix
+                type: alexanderzobnin-zabbix-datasource
+                url: http://zabbix-web-service.zabbix-helm.svc.cluster.local:8080/api_jsonrpc.php
+                access: proxy
+                editable: true
+                jsonData:
+                  username: Admin
+                  zabbixVersion: 7
+      run_once: true
+
+    - name: Aplicar ConfigMap de Data Sources no cluster
+      ansible.builtin.command:
+        cmd: kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifestos/grafana-datasources.yaml --kubeconfig={{ kubeconfig_path }}
+      register: ds_apply
+      changed_when: "'created' in ds_apply.stdout or 'configured' in ds_apply.stdout"
+      run_once: true
+
+    - name: Reiniciar deployment do Grafana para aplicar provisioning de Data Sources
+      ansible.builtin.command:
+        cmd: kubectl rollout restart deployment/grafana -n {{ monitoring_namespace }} --kubeconfig={{ kubeconfig_path }}
+      changed_when: true
+      run_once: true
+
+    - name: Aguardar rollout do deployment grafana
+      ansible.builtin.command:
+        cmd: kubectl rollout status deployment/grafana -n {{ monitoring_namespace }} --timeout=120s --kubeconfig={{ kubeconfig_path }}
+      changed_when: false
+      run_once: true
+
+    - name: Exibir status da configuracao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "     DATA SOURCES CONFIGURADOS COM SUCESSO NO GRAFANA      "
+          - "=========================================================="
+          - "Prometheus:   http://prometheus-service.monitoring.svc.cluster.local:9090 (Default)"
+          - "Alertmanager: http://alertmanager-service.monitoring.svc.cluster.local:9093"
+          - "Zabbix:       http://zabbix-web-service.zabbix-helm.svc.cluster.local:8080/api_jsonrpc.php"
+          - "=========================================================="
+      run_once: true

@@ -1,0 +1,125 @@
+---
+- name: 28 - Importa Dashboards no Grafana
+  hosts: k8s_control_planes
+  become: true
+  vars:
+    grafana_url: "http://grafana.nverse.local"
+    grafana_fallback_url: "http://10.0.39.50:32000"
+    grafana_user: "admin"
+    grafana_password: "admin123"
+    dashboards_dir: "{{ ansible_facts['env']['HOME'] }}/dashboards"
+    dashboards:
+      - { id: 15760, name: "k8s-views" }
+      - { id: 315, name: "k8s-cluster-monitoring" }
+      - { id: 1860, name: "node-exporter-full" }
+
+  tasks:
+    - name: Garantir resolucao de host para grafana.nverse.local no /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.201 grafana.nverse.local"
+        state: present
+
+    - name: Garantir pasta temporaria para dashboards
+      ansible.builtin.file:
+        path: "{{ dashboards_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Verificar se o deployment do Grafana esta concluido (com fallback)
+      ansible.builtin.command:
+        cmd: kubectl rollout status deployment/grafana -n monitoring --timeout=60s
+      register: rollout_check
+      changed_when: false
+      failed_when: false
+      run_once: true
+
+    - name: Baixar JSON dos Dashboards do Grafana.com
+      ansible.builtin.get_url:
+        url: "https://grafana.com/api/dashboards/{{ item.id }}/revisions/latest/download"
+        dest: "{{ dashboards_dir }}/{{ item.name }}.json"
+        mode: '0644'
+      loop: "{{ dashboards }}"
+      loop_control:
+        label: "{{ item.name }}"
+      run_once: true
+
+    - name: Ajustar referencias ao DataSource Prometheus nos JSONs
+      ansible.builtin.replace:
+        path: "{{ dashboards_dir }}/{{ item.name }}.json"
+        regexp: '\$\{DS_[A-Z0-9_]+\}'
+        replace: 'Prometheus'
+      loop: "{{ dashboards }}"
+      loop_control:
+        label: "{{ item.name }}"
+      run_once: true
+
+    - name: Ler arquivos de JSON dos Dashboards no host remoto
+      ansible.builtin.slurp:
+        src: "{{ dashboards_dir }}/{{ item.name }}.json"
+      loop: "{{ dashboards }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dashboard_files
+      run_once: true
+      no_log: true
+
+    - name: Importar Dashboards na API REST do Grafana (com Retry)
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/dashboards/db"
+        method: POST
+        user: "{{ grafana_user }}"
+        password: "{{ grafana_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          dashboard: "{{ item.content | b64decode | from_json }}"
+          overwrite: true
+        status_code: [200, 201]
+      loop: "{{ dashboard_files.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: import_result
+      until: import_result is not failed
+      retries: 5
+      delay: 5
+      run_once: true
+      no_log: true
+      ignore_errors: true
+
+    - name: Importar Dashboards via Fallback NodePort se Ingress falhar
+      ansible.builtin.uri:
+        url: "{{ grafana_fallback_url }}/api/dashboards/db"
+        method: POST
+        user: "{{ grafana_user }}"
+        password: "{{ grafana_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          dashboard: "{{ item.content | b64decode | from_json }}"
+          overwrite: true
+        status_code: [200, 201]
+      loop: "{{ dashboard_files.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: import_result is failed
+      run_once: true
+      no_log: true
+      ignore_errors: true
+
+    - name: Limpar pasta temporaria
+      ansible.builtin.file:
+        path: "{{ dashboards_dir }}"
+        state: absent
+      run_once: true
+
+    - name: Exibir resumo da importacao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "     DASHBOARDS IMPORTADOS COM SUCESSO NO GRAFANA          "
+          - "=========================================================="
+          - "Dashboards: K8s Views, Cluster Monitoring, Node Exporter"
+          - "URL Grafana: http://grafana.nverse.local (ou http://10.0.39.50:32000)"
+          - "=========================================================="
+      run_once: true
