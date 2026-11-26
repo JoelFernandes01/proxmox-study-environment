@@ -1,5 +1,5 @@
 ---
-- name: 15 - Configura ClusterIssuer de CA Interna no Cert-Manager
+- name: 16 - Configura ClusterIssuer de CA Interna no Cert-Manager
   hosts: k8s-control-plane-01
   become: true
   vars:
@@ -8,61 +8,84 @@
     kubeconfig_path: "/etc/kubernetes/admin.conf"
 
   tasks:
-    - name: Criar manifesto temporario do Self-Signed e CA Issuer
-      ansible.builtin.copy:
-        dest: /tmp/cluster-issuer-ca.yaml
-        content: |
-          ---
-          apiVersion: cert-manager.io/v1
-          kind: ClusterIssuer
-          metadata:
-            name: selfsigned-issuer
-          spec:
-            selfSigned: {}
-          ---
-          apiVersion: cert-manager.io/v1
-          kind: Certificate
-          metadata:
-            name: internal-root-ca
-            namespace: cert-manager
-          spec:
-            isCA: true
-            commonName: "Nverse Internal Root CA"
-            secretName: internal-root-ca-secret
-            privateKey:
-              algorithm: RSA
-              size: 2048
-            issuerRef:
-              name: selfsigned-issuer
-              kind: ClusterIssuer
-              group: cert-manager.io
-          ---
-          apiVersion: cert-manager.io/v1
-          kind: ClusterIssuer
-          metadata:
-            name: internal-ca-issuer
-          spec:
-            ca:
-              secretName: internal-root-ca-secret
+    - name: 1. Aplicar ClusterIssuer Self-Signed
+      ansible.builtin.shell: |
+        kubectl apply --kubeconfig={{ kubeconfig_path }} -f - <<EOF
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+          name: selfsigned-issuer
+        spec:
+          selfSigned: {}
+        EOF
+      register: apply_selfsigned
 
-    - name: Aplicar ClusterIssuer e Root CA no Kubernetes via kubectl
+    - name: 2. Aguardar ClusterIssuer Self-Signed ficar Ready
       ansible.builtin.command: >
-        kubectl apply -f /tmp/cluster-issuer-ca.yaml
+        kubectl get clusterissuer selfsigned-issuer
         --kubeconfig={{ kubeconfig_path }}
-        --validate=false
+        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      register: selfsigned_status
+      until: selfsigned_status.stdout == "True"
+      retries: 12
+      delay: 5
+      changed_when: false
 
-    - name: Remover arquivo manifesto temporario
-      ansible.builtin.file:
-        path: /tmp/cluster-issuer-ca.yaml
-        state: absent
+    - name: 3. Aplicar Certificate para gerar a Root CA
+      ansible.builtin.shell: |
+        kubectl apply --kubeconfig={{ kubeconfig_path }} -f - <<EOF
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: internal-root-ca
+          namespace: {{ cert_manager_namespace }}
+        spec:
+          isCA: true
+          commonName: "Nverse Internal Root CA"
+          secretName: internal-root-ca-secret
+          privateKey:
+            algorithm: RSA
+            size: 2048
+          issuerRef:
+            name: selfsigned-issuer
+            kind: ClusterIssuer
+            group: cert-manager.io
+        EOF
 
-    - name: Validar status do ClusterIssuer interno via kubectl
+    - name: 4. Aguardar a Secret internal-root-ca-secret ser gerada
+      ansible.builtin.command: >
+        kubectl get secret internal-root-ca-secret
+        -n {{ cert_manager_namespace }}
+        --kubeconfig={{ kubeconfig_path }}
+      register: secret_check
+      until: secret_check.rc == 0
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: 5. Aplicar ClusterIssuer de CA Interna definitivo
+      ansible.builtin.shell: |
+        kubectl apply --kubeconfig={{ kubeconfig_path }} -f - <<EOF
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+          name: {{ issuer_name }}
+        spec:
+          ca:
+            secretName: internal-root-ca-secret
+        EOF
+
+    - name: 6. Validar status do ClusterIssuer interno
       ansible.builtin.command: >
         kubectl get clusterissuer {{ issuer_name }}
         --kubeconfig={{ kubeconfig_path }}
-      register: issuer_status
+        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      register: issuer_ready
+      until: issuer_ready.stdout == "True"
+      retries: 12
+      delay: 5
       changed_when: false
 
     - name: Exibir confirmacao de prontidao do Issuer
       ansible.builtin.debug:
-        msg: "{{ issuer_status.stdout }}"
+        msg: "ClusterIssuer {{ issuer_name }} configurado e READY com sucesso!"

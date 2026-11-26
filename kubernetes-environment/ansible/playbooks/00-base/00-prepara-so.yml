@@ -57,6 +57,12 @@
         - "{{ ansible_user | default('connect') }}"
         - root
 
+    - name: Garantir resolucao local do k8s-api no /etc/hosts em todas as VMs
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local k8s-api"
+        state: present
+
     - name: Configurar autocomplete do kubectl e helm no Fish Shell (global)
       ansible.builtin.copy:
         dest: /etc/fish/config.fish

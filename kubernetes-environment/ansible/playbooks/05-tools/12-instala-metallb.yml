@@ -16,10 +16,13 @@
       register: helm_install_check
       changed_when: "'Downloading' in helm_install_check.stdout or 'Installing' in helm_install_check.stdout"
 
-    - name: Criar namespace metallb-system
+    - name: Criar namespace metallb-system (com tolerancia e retentativa de quorum)
       ansible.builtin.command:
         cmd: kubectl create namespace {{ metallb_namespace }}
       register: create_ns
+      until: create_ns.rc == 0 or 'already exists' in create_ns.stderr
+      retries: 10
+      delay: 5
       failed_when: create_ns.rc != 0 and 'already exists' not in create_ns.stderr
       changed_when: create_ns.rc == 0
 
@@ -27,15 +30,22 @@
       ansible.builtin.command:
         cmd: helm repo add metallb https://metallb.github.io/metallb
       register: helm_repo
+      until: helm_repo.rc == 0
+      retries: 5
+      delay: 3
       changed_when: "'has been added' in helm_repo.stdout or 'already exists' in helm_repo.stdout"
 
     - name: Atualizar repositorios Helm
       ansible.builtin.command:
         cmd: helm repo update
+      register: helm_update
+      until: helm_update.rc == 0
+      retries: 5
+      delay: 3
 
     - name: Verificar e destravar release do MetalLB no Helm se estiver pendente
       ansible.builtin.shell: |
-        STATUS=$(helm status metallb -n {{ metallb_namespace }} -o json 2>/dev/null | jq -r '.info.status' || echo 'not-found')
+        STATUS=$(helm status metallb -n {{ metallb_namespace }} -o json 2>/dev/null | jq -r '.info.status' || echo "not-found")
         if [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-rollback" ]; then
           echo "Detectada release do MetalLB em estado $STATUS. Removendo trava..."
           kubectl delete secret -n {{ metallb_namespace }} -l owner=helm,name=metallb --ignore-not-found
@@ -55,14 +65,15 @@
               --create-namespace
               --set speaker.frr.enabled=false
           register: helm_install
+          until: helm_install.rc == 0
+          retries: 5
+          delay: 5
           changed_when: "'STATUS: deployed' in helm_install.stdout or 'upgraded' in helm_install.stdout"
-
       rescue:
         - name: Recuperar de falha de trava - Remover secret travado e desinstalar release corrompida
           ansible.builtin.shell: |
             kubectl delete secret -n {{ metallb_namespace }} -l owner=helm,name=metallb --ignore-not-found
             helm uninstall metallb -n {{ metallb_namespace }} --ignore-not-found || true
-
         - name: Reinstalar MetalLB apos limpeza automatica
           ansible.builtin.command:
             cmd: >
@@ -72,6 +83,9 @@
               --create-namespace
               --set speaker.frr.enabled=false
           register: helm_reinstall
+          until: helm_reinstall.rc == 0
+          retries: 5
+          delay: 5
           changed_when: true
 
     - name: Aguardar o Controller do MetalLB estar em estado Ready (Rollout Status)
@@ -79,9 +93,9 @@
         cmd: kubectl rollout status deployment/metallb-controller -n {{ metallb_namespace }} --timeout=180s
       changed_when: false
 
-    - name: Aplicar Pool de IPs e L2Advertisement do MetalLB (com Retry para Webhook TLS)
+    - name: Aplicar configuracao de IPAddressPool e L2Advertisement resiliente
       ansible.builtin.shell: |
-        cat <<EOF | kubectl apply -f -
+        kubectl apply -f - <<EOF
         apiVersion: metallb.io/v1beta1
         kind: IPAddressPool
         metadata:
@@ -89,7 +103,7 @@
           namespace: {{ metallb_namespace }}
         spec:
           addresses:
-            - {{ ip_range }}
+          - {{ ip_range }}
         ---
         apiVersion: metallb.io/v1beta1
         kind: L2Advertisement

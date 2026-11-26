@@ -27,10 +27,13 @@
       changed_when: false
 
     - name: 4. Validar se o ClusterIssuer do Cert-Manager está Ready
-      ansible.builtin.shell: >
-        kubectl get clusterissuer internal-ca-issuer --kubeconfig={{ kubeconfig_path }} -o jsonpath='{.status.conditions[0].status}'
-      register: clusterissuer_check
-      failed_when: clusterissuer_check.stdout != "True"
+      ansible.builtin.command: >
+        kubectl get clusterissuer internal-ca-issuer
+        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+      register: cluster_issuer_status
+      until: cluster_issuer_status.stdout == "True"
+      retries: 6
+      delay: 5
       changed_when: false
 
     - name: 5. Validar se o Metrics Server está coletando métricas dos nós

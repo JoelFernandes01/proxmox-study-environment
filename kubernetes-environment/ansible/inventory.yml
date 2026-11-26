@@ -1,0 +1,65 @@
+"all":
+  "children":
+    "k8s_control_planes":
+      "hosts":
+        "k8s-control-plane-01": {}
+        "k8s-control-plane-02": {}
+        "k8s-control-plane-03": {}
+    "k8s_haproxy":
+      "hosts":
+        "k8s-haproxy-01": {}
+        "k8s-haproxy-02": {}
+    "k8s_nfs":
+      "hosts":
+        "k8s-nfs-01": {}
+    "k8s_workers":
+      "hosts":
+        "k8s-worker-01": {}
+        "k8s-worker-02": {}
+        "k8s-worker-03": {}
+  "hosts":
+    "k8s-control-plane-01":
+      "ansible_become": true
+      "ansible_host": "10.0.39.43"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-control-plane-02":
+      "ansible_become": true
+      "ansible_host": "10.0.39.44"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-control-plane-03":
+      "ansible_become": true
+      "ansible_host": "10.0.39.45"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-haproxy-01":
+      "ansible_become": true
+      "ansible_host": "10.0.39.41"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-haproxy-02":
+      "ansible_become": true
+      "ansible_host": "10.0.39.42"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-nfs-01":
+      "ansible_become": true
+      "ansible_host": "10.0.39.70"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-worker-01":
+      "ansible_become": true
+      "ansible_host": "10.0.39.61"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-worker-02":
+      "ansible_become": true
+      "ansible_host": "10.0.39.62"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
+    "k8s-worker-03":
+      "ansible_become": true
+      "ansible_host": "10.0.39.63"
+      "ansible_python_interpreter": "/usr/bin/python3"
+      "ansible_user": "connect"
