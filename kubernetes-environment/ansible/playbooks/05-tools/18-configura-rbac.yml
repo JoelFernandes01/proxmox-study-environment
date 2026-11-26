@@ -1,0 +1,79 @@
+---
+- name: 18 - Configura Acesso RBAC no Cluster Kubernetes
+  hosts: k8s-control-plane-01
+  become: true
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    target_namespace: "desenvolvimento"
+    service_account_name: "dev-user-sa"
+    role_name: "dev-pod-reader-role"
+    role_binding_name: "dev-pod-reader-binding"
+
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local no host remoto
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir que a pasta de manifestos exista no host remoto
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifestos"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto dev-team-rbac.yaml da maquina local para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/dev-team-rbac.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifestos/dev-team-rbac.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto RBAC no cluster via kubectl
+      ansible.builtin.command: >
+        kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifestos/dev-team-rbac.yaml
+        --kubeconfig={{ kubeconfig_path }}
+        --validate=false
+      register: rbac_apply
+      changed_when: "'created' in rbac_apply.stdout or 'configured' in rbac_apply.stdout"
+
+    - name: Validar se a ServiceAccount foi criada com sucesso
+      ansible.builtin.command: >
+        kubectl get serviceaccount {{ service_account_name }}
+        -n {{ target_namespace }}
+        --kubeconfig={{ kubeconfig_path }}
+      register: sa_check
+      changed_when: false
+
+    - name: Testar permissao de leitura de Pods (Esperado 'yes')
+      ansible.builtin.command: >
+        kubectl auth can-i list pods
+        --as=system:serviceaccount:{{ target_namespace }}:{{ service_account_name }}
+        -n {{ target_namespace }}
+        --kubeconfig={{ kubeconfig_path }}
+      register: can_i_list_pods
+      failed_when: can_i_list_pods.stdout != "yes"
+      changed_when: false
+
+    - name: Testar restricao de delecao de Pods (Esperado 'no')
+      ansible.builtin.command: >
+        kubectl auth can-i delete pods
+        --as=system:serviceaccount:{{ target_namespace }}:{{ service_account_name }}
+        -n {{ target_namespace }}
+        --kubeconfig={{ kubeconfig_path }}
+      register: can_i_delete_pods
+      failed_when: can_i_delete_pods.stdout != "no"
+      changed_when: false
+
+    - name: Exibir resumo da configuracao de RBAC
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "         RESUMO DA CONFIGURAÇÃO DE RBAC (K8S)             "
+          - "=========================================================="
+          - "Namespace: {{ target_namespace }}"
+          - "ServiceAccount: {{ service_account_name }}"
+          - "Role: {{ role_name }}"
+          - "RoleBinding: {{ role_binding_name }}"
+          - "Teste de Leitura (list pods): {{ can_i_list_pods.stdout }}"
+          - "Teste de Escrita/Delecao (delete pods): {{ can_i_delete_pods.stdout }}"
+          - "=========================================================="

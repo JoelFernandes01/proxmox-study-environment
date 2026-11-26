@@ -1,0 +1,59 @@
+---
+- name: 21 - Configura Monitoramento do K8s no Zabbix (RBAC e Token)
+  hosts: k8s-control-plane-01
+  become: true
+  vars:
+    kubeconfig_path: "/etc/kubernetes/admin.conf"
+    monitoring_namespace: "zabbix-monitoring"
+    sa_name: "zabbix-service-account"
+    secret_name: "zabbix-service-account-token"
+
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local no host remoto
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir que a pasta de manifestos exista no host remoto
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifestos"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto zabbix-k8s-rbac.yaml para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/zabbix-k8s-rbac.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifestos/zabbix-k8s-rbac.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto de RBAC do Zabbix no cluster
+      ansible.builtin.command: >
+        kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifestos/zabbix-k8s-rbac.yaml
+        --kubeconfig={{ kubeconfig_path }}
+      register: zabbix_rbac_apply
+      changed_when: "'created' in zabbix_rbac_apply.stdout or 'configured' in zabbix_rbac_apply.stdout"
+
+    - name: Extrair Token de acesso da ServiceAccount do Zabbix
+      ansible.builtin.shell: >
+        kubectl get secret {{ secret_name }}
+        -n {{ monitoring_namespace }}
+        -o jsonpath='{.data.token}'
+        --kubeconfig={{ kubeconfig_path }} | base64 --decode
+      register: zabbix_token_raw
+      changed_when: false
+
+    - name: Exibir credenciais para configuracao do Template no Zabbix Web
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "     CREDENCIAIS PARA O TEMPLATE KUBERNETES NO ZABBIX      "
+          - "=========================================================="
+          - "URL do API Server: https://k8s-api.nverse.local:6443"
+          - "VIP de Acesso:     https://10.0.39.50:6443"
+          - "Namespace:         {{ monitoring_namespace }}"
+          - "Service Account:   {{ sa_name }}"
+          - "----------------------------------------------------------"
+          - "TOKEN DE ACESSO (Copie e cole na Macro {$KUBE.API.TOKEN}):"
+          - "{{ zabbix_token_raw.stdout }}"
+          - "=========================================================="

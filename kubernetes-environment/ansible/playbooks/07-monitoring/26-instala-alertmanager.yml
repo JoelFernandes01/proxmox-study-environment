@@ -1,0 +1,53 @@
+---
+# ==============================================================================
+# PLAYBOOK: 26-instala-alertmanager.yml
+# FASE: 07-monitoring
+# OBJETIVO: Instalar o Alertmanager no cluster Kubernetes
+# ==============================================================================
+
+- name: 26 - Instala Alertmanager no Cluster Kubernetes
+  hosts: k8s_control_planes
+  become: true
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir pasta de manifestos no control-plane
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifests"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto alertmanager.yaml para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/alertmanager.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifests/alertmanager.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto do Alertmanager no cluster
+      ansible.builtin.command:
+        cmd: kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifests/alertmanager.yaml
+      register: alertmanager_apply
+      changed_when: "'created' in alertmanager_apply.stdout or 'configured' in alertmanager_apply.stdout"
+      run_once: true
+
+    - name: Aguardar rollout do deployment alertmanager
+      ansible.builtin.command:
+        cmd: kubectl rollout status deployment/alertmanager -n monitoring --timeout=120s
+      changed_when: false
+      run_once: true
+
+    - name: Exibir status da instalacao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "         ALERTMANAGER INSTALADO COM SUCESSO               "
+          - "=========================================================="
+          - "Namespace: monitoring"
+          - "Servico:   alertmanager-service.monitoring.svc.cluster.local:9093"
+          - "URL:       http://alertmanager.nverse.local"
+          - "=========================================================="
+      run_once: true

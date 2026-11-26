@@ -1,0 +1,47 @@
+---
+# ==============================================================================
+# PLAYBOOK: 25-configura-ingress-monitoring.yml
+# FASE: 07-monitoring
+# OBJETIVO: Configurar Ingress via Traefik para Prometheus e Grafana
+# ==============================================================================
+
+- name: 25 - Configura Ingress do Monitoring (Traefik)
+  hosts: k8s_control_planes
+  become: true
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir pasta de manifestos no control-plane
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifests"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto ingress-monitoring.yaml para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/ingress-monitoring.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifests/ingress-monitoring.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto de Ingress no cluster
+      ansible.builtin.command:
+        cmd: kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifests/ingress-monitoring.yaml
+      register: ingress_apply
+      changed_when: "'created' in ingress_apply.stdout or 'configured' in ingress_apply.stdout"
+      run_once: true
+
+    - name: Exibir status da instalacao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "       INGRESS DE MONITORAMENTO CONFIGURADO (TRAEFIK)     "
+          - "=========================================================="
+          - "Grafana:    http://grafana.nverse.local"
+          - "Prometheus: http://prometheus.nverse.local"
+          - "IP Traefik: 10.0.39.201"
+          - "=========================================================="
+      run_once: true

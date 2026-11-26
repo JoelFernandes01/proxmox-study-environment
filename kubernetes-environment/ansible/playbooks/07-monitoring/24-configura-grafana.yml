@@ -1,0 +1,48 @@
+---
+- name: 24 - Instala Grafana no Cluster Kubernetes
+  hosts: k8s_control_planes
+  become: true
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir pasta de manifestos no control-plane
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifests"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto grafana.yaml para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/grafana.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifests/grafana.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto do Grafana no cluster
+      ansible.builtin.command:
+        cmd: kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifests/grafana.yaml
+      register: grafana_apply
+      changed_when: "'created' in grafana_apply.stdout or 'configured' in grafana_apply.stdout"
+      run_once: true
+
+    - name: Aguardar rollout do deployment grafana
+      ansible.builtin.command:
+        cmd: kubectl rollout status deployment/grafana -n monitoring --timeout=120s
+      changed_when: false
+      run_once: true
+
+    - name: Exibir status da instalacao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "           GRAFANA INSTALADO COM SUCESSO                  "
+          - "=========================================================="
+          - "Namespace: monitoring"
+          - "URL:       http://10.0.39.50:32000"
+          - "User:      admin"
+          - "Password:  admin123"
+          - "=========================================================="
+      run_once: true

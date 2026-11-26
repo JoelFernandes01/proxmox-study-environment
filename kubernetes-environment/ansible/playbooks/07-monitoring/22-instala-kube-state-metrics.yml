@@ -1,0 +1,49 @@
+---
+# ==============================================================================
+# PLAYBOOK: 22-instala-kube-state-metrics.yml
+# FASE: 07-monitoring
+# OBJETIVO: Instalar o kube-state-metrics no cluster Kubernetes
+# ==============================================================================
+
+- name: 22 - Instala Kube-State-Metrics no Cluster Kubernetes
+  hosts: k8s_control_planes[0]
+  become: true
+  tasks:
+    - name: Garantir resolucao DNS/hosts para k8s-api.nverse.local
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.0.39.50 k8s-api.nverse.local"
+        state: present
+
+    - name: Garantir pasta de manifestos no control-plane
+      ansible.builtin.file:
+        path: "{{ ansible_facts['env']['HOME'] }}/manifestos"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar manifesto kube-state-metrics.yaml para o control-plane
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../manifests/kube-state-metrics.yaml"
+        dest: "{{ ansible_facts['env']['HOME'] }}/manifestos/kube-state-metrics.yaml"
+        mode: '0644'
+
+    - name: Aplicar manifesto kube-state-metrics no cluster
+      ansible.builtin.command: >
+        kubectl apply -f {{ ansible_facts['env']['HOME'] }}/manifestos/kube-state-metrics.yaml --validate=false --kubeconfig=/etc/kubernetes/admin.conf
+      register: ksm_apply
+      changed_when: "'created' in ksm_apply.stdout or 'configured' in ksm_apply.stdout"
+
+    - name: Aguardar rollout do deployment kube-state-metrics
+      ansible.builtin.command: >
+        kubectl rollout status deployment/kube-state-metrics -n kube-system --timeout=60s --kubeconfig=/etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Exibir status da instalacao
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "      KUBE-STATE-METRICS INSTALADO COM SUCESSO             "
+          - "=========================================================="
+          - "Namespace: kube-system"
+          - "Deployment: kube-state-metrics"
+          - "=========================================================="

@@ -1,38 +1,40 @@
 ---
 # ==============================================================================
-# Playbook Mestre (site.yml) - Esteira Completa Kubernetes HA + Tools + ArgoCD
+# ESTEIRA DE AUTOMAÇÃO KUBERNETES - SITE PRINCIPAL (MASTER)
+# ==============================================================================
+# Executa todas as fases sequencialmente da infraestrutura Kubernetes no Proxmox.
 # ==============================================================================
 
-# 00 - Base & SO
-- import_playbook: playbooks/00-base/00-prepara-so.yml
+# FASE 01: Prepara OS
+- import_playbook: playbooks/01-os-prep/01-prepara-os-k8s.yml
 
-# 01 - Storage Server (NFS)
-- import_playbook: playbooks/01-storage/01-configura-nfs-server.yml
+# FASE 02: Storage NFS
+- import_playbook: playbooks/02-storage/02-prepara-nfs-server.yml
 
-# 02 - Load Balancers (HAProxy & Keepalived)
-- import_playbook: playbooks/02-loadbalancer/02-configura-keepalived.yml
-- import_playbook: playbooks/02-loadbalancer/03-configura-haproxy.yml
+# FASE 03: HAProxy VIP
+- import_playbook: playbooks/03-haproxy/03-instala-haproxy-vip.yml
 
-# 03 - Cluster Kubernetes (Kubeadm HA)
-- import_playbook: playbooks/03-kubernetes/04-prepara-k8s-prereqs.yml
-- import_playbook: playbooks/03-kubernetes/05-init-control-plane-01.yml
-- import_playbook: playbooks/03-kubernetes/06-gera-tokens-join.yml
-- import_playbook: playbooks/03-kubernetes/07-join-control-planes.yml
-- import_playbook: playbooks/03-kubernetes/08-join-workers.yml
+# FASE 04: Control Plane Bootstrap
+- import_playbook: playbooks/04-k8s-bootstrap/04-adiciona-hosts-k8s-api.yml
+- import_playbook: playbooks/04-k8s-bootstrap/05-init-control-plane-01.yml
+- import_playbook: playbooks/04-k8s-bootstrap/06-join-control-planes.yml
 
-# 04 - Network & Storage Class (CNI Calico & NFS Provisioner)
-- import_playbook: playbooks/04-network-storage/09-instala-cni-calico.yml
-- import_playbook: playbooks/04-network-storage/10-instala-nfs-provisioner.yml
+# FASE 05: Workers Join
+- import_playbook: playbooks/05-k8s-workers/07-join-workers.yml
 
-# 05 - Ferramentas & Ecossistema DevOps (Portainer, MetalLB, Metrics, Traefik, Cert-Manager, ArgoCD)
-- import_playbook: playbooks/05-tools/11-instala-portainer-agent.yml
+# FASE 06: CNI & Network
+- import_playbook: playbooks/06-network/08-instala-flannel-cni.yml
+
+# FASE 07: Core Tools & Ingress
+- import_playbook: playbooks/05-tools/10-instala-nfs-provisioner.yml
+- import_playbook: playbooks/05-tools/11-instala-traefik-ingress.yml
 - import_playbook: playbooks/05-tools/12-instala-metallb.yml
 - import_playbook: playbooks/05-tools/13-instala-metrics-server.yml
-- import_playbook: playbooks/05-tools/14-instala-traefik-ingress.yml
-- import_playbook: playbooks/05-tools/15-instala-cert-manager.yml
-- import_playbook: playbooks/05-tools/16-configura-cluster-issuer-ca.yml
-- import_playbook: playbooks/05-tools/17-instala-argocd.yml
 
-# 06 - Testes e Validação E2E
-- import_playbook: playbooks/06-testing/18-valida-cluster-k8s-e2e.yml
-- import_playbook: playbooks/06-testing/19-deploy-aplicacao-teste-https.yml
+# FASE 08: Monitoring & Observability
+- import_playbook: playbooks/07-monitoring/21-instala-zabbix-monitoring-k8s.yml
+- import_playbook: playbooks/07-monitoring/22-instala-kube-state-metrics.yml
+- import_playbook: playbooks/07-monitoring/23-instala-prometheus.yml
+- import_playbook: playbooks/07-monitoring/24-configura-grafana.yml
+- import_playbook: playbooks/07-monitoring/26-instala-alertmanager.yml
+- import_playbook: playbooks/07-monitoring/25-configura-ingress-monitoring.yml

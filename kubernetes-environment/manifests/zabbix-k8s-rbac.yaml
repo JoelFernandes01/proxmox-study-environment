@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zabbix-monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zabbix-service-account
+  namespace: zabbix-monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zabbix-service-account-token
+  namespace: zabbix-monitoring
+  annotations:
+    kubernetes.io/service-account.name: zabbix-service-account
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zabbix-cluster-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/resources
+      - services
+      - endpoints
+      - pods
+      - configmaps
+      - namespaces
+      - persistentvolumes
+      - persistentvolumeclaims
+      - componentstatuses
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - nodes
+      - pods
+    verbs: ["get", "list"]
+  - nonResourceURLs: ["/healthz", "/version", "/stat", "/api", "/apis*"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zabbix-cluster-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: zabbix-service-account
+    namespace: zabbix-monitoring
+roleRef:
+  kind: ClusterRole
+  name: zabbix-cluster-role
+  apiGroup: rbac.authorization.k8s.io
