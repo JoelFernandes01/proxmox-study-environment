@@ -38,6 +38,8 @@ spec:
           value: "admin"
         - name: GF_SECURITY_ADMIN_PASSWORD
           value: "admin123"
+        - name: GF_INSTALL_PLUGINS
+          value: "alexanderzobnin-zabbix-app"
         volumeMounts:
         - name: grafana-datasources
           mountPath: /etc/grafana/provisioning/datasources
